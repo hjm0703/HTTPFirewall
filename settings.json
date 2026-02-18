@@ -1,0 +1,22 @@
+{
+  "ip_filter_enabled": false,
+  "mac_filter_enabled": false,
+  "ip_whitelist": [
+    {"ip": "192.168.1.5", "description": "", "active": true, "ip_type": "IPv4"},
+    {"ip": "192.168.1.1", "description": "", "active": true, "ip_type": "IPv4"}
+  ],
+  "mac_whitelist": [
+    {"mac": "00:26:40:00:0A:0B", "description": "Unknown", "ipv4": "192.168.1.1", "active": true},
+    {"mac": "2C:CC:E6:F6:E9:7A", "description": "Unknown", "ipv4": "192.168.1.4", "active": true},
+    {"mac": "9C:12:21:03:77:26", "description": "Unknown", "ipv4": "192.168.1.5", "active": true},
+    {"mac": "22:3C:4D:69:54:57", "description": "Unknown", "ipv4": "192.168.1.11", "active": true},
+    {"mac": "00:26:40:00:0A:0C", "description": "Unknown", "ipv4": "192.168.1.202", "active": true},
+    {"mac": "FF:FF:FF:FF:FF:FF", "description": "Unknown", "ipv4": "192.168.1.255", "active": true},
+    {"mac": "01:00:5E:00:00:02", "description": "Unknown", "ipv4": "224.0.0.2", "active": true},
+    {"mac": "01:00:5E:00:00:16", "description": "Unknown", "ipv4": "224.0.0.22", "active": true},
+    {"mac": "01:00:5E:00:00:FB", "description": "Unknown", "ipv4": "224.0.0.251", "active": true},
+    {"mac": "01:00:5E:00:00:FC", "description": "Unknown", "ipv4": "224.0.0.252", "active": true},
+    {"mac": "01:00:5E:7F:FF:FA", "description": "Unknown", "ipv4": "239.255.255.250", "active": true}
+  ],
+  "cve_config": {"cve2017_0144_enabled": true, "cve2024_38063_enabled": true, "cve2023_44487_enabled": true, "cve2023_38545_enabled": true, "cve2024_45177_enabled": true, "cve2023_23397_enabled": false, "cve2021_34527_enabled": true, "cve2024_21745_enabled": true, "cve2021_44228_enabled": false}
+}
