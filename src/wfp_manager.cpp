@@ -14,11 +14,13 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <iphlpapi.h>
+#include <psapi.h>
 #include <windivert.h>
 
 #pragma comment(lib, "WinDivert.lib")
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "iphlpapi.lib")
+#pragma comment(lib, "psapi.lib")
 
 WfpManager::WfpManager() : divertHandle_(nullptr), running_(false), loggingEnabled_(true), logFileCount_(0), macFilterEnabled_(false), ipFilterEnabled_(false) {
     // 初始化所有 CVE 防护状态
@@ -35,6 +37,7 @@ WfpManager::WfpManager() : divertHandle_(nullptr), running_(false), loggingEnabl
     cveStatus_.cve2024_21745 = false;
     cveStatus_.cve2021_44228 = false;
     cveStatus_.ipv6Blocked = false;
+    cveStatus_.highRiskPortsBlocked = false;
     logDir_ = "block_logs";
 }
 
@@ -354,6 +357,27 @@ void WfpManager::packetLoop() {
                     }
                 }
             }
+            
+            // 高危端口防护 - 阻断 135, 137, 138, 139, 445 端口的入站流量
+            // 这些端口是 Windows 系统中最常被攻击的高风险端口
+            if (!shouldDrop && cveStatus_.highRiskPortsBlocked && !addr.Outbound) {
+                uint16_t dstPort = 0;
+                uint16_t srcPort = 0;
+                
+                if (tcpHdr != nullptr) {
+                    dstPort = ntohs(tcpHdr->DstPort);
+                    srcPort = ntohs(tcpHdr->SrcPort);
+                } else if (udpHdr != nullptr) {
+                    dstPort = ntohs(udpHdr->DstPort);
+                    srcPort = ntohs(udpHdr->SrcPort);
+                }
+                
+                // 高危端口列表：135(RPC), 137-139(NetBIOS), 445(SMB)
+                if (dstPort == 135 || dstPort == 137 || dstPort == 138 || 
+                    dstPort == 139 || dstPort == 445) {
+                    shouldDrop = true;
+                }
+            }
         }
         
         if (shouldDrop) {
@@ -658,6 +682,26 @@ bool WfpManager::disableCve2021_44228Protection() {
     return true;
 }
 
+// ==================== 高危端口防护 ====================
+// 阻断 Windows 高危端口：135(RPC), 137-139(NetBIOS), 445(SMB)
+// 这些端口是永恒之蓝、冲击波等病毒的主要攻击目标
+bool WfpManager::enableHighRiskPortsProtection() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    cveStatus_.highRiskPortsBlocked = true;
+    return true;
+}
+
+bool WfpManager::disableHighRiskPortsProtection() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    cveStatus_.highRiskPortsBlocked = false;
+    return true;
+}
+
+bool WfpManager::isHighRiskPortsProtected() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return cveStatus_.highRiskPortsBlocked;
+}
+
 CveProtectionStatus WfpManager::getCveProtectionStatus() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return cveStatus_;
@@ -698,6 +742,8 @@ void WfpManager::setCveProtection(const std::string& cveId, bool enabled) {
         cveStatus_.cve2024_21745 = enabled;
     } else if (cveId == "cve2021_44228") {
         cveStatus_.cve2021_44228 = enabled;
+    } else if (cveId == "highRiskPorts") {
+        cveStatus_.highRiskPortsBlocked = enabled;
     }
 }
 
@@ -1123,4 +1169,365 @@ bool WfpManager::clearMacWhitelist() {
 int WfpManager::getMacWhitelistCount() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return static_cast<int>(macWhitelist_.size());
+}
+
+// ==================== 端口管理功能 ====================
+
+std::vector<PortEntry> WfpManager::getPorts(const std::string& protocol, const std::string& state) {
+    std::vector<PortEntry> ports;
+    
+    // 获取 TCP 连接表
+    if (protocol == "all" || protocol == "tcp") {
+        PMIB_TCPTABLE_OWNER_PID pTcpTable = nullptr;
+        ULONG size = 0;
+        
+        if (GetExtendedTcpTable(nullptr, &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0) == ERROR_INSUFFICIENT_BUFFER) {
+            pTcpTable = (PMIB_TCPTABLE_OWNER_PID)malloc(size);
+            if (pTcpTable && GetExtendedTcpTable(pTcpTable, &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0) == NO_ERROR) {
+                for (DWORD i = 0; i < pTcpTable->dwNumEntries; i++) {
+                    MIB_TCPROW_OWNER_PID& row = pTcpTable->table[i];
+                    PortEntry entry;
+                    entry.port = ntohs((u_short)row.dwLocalPort);
+                    entry.protocol = "TCP";
+                    entry.localAddress = std::to_string((row.dwLocalAddr >> 0) & 0xFF) + "." +
+                                         std::to_string((row.dwLocalAddr >> 8) & 0xFF) + "." +
+                                         std::to_string((row.dwLocalAddr >> 16) & 0xFF) + "." +
+                                         std::to_string((row.dwLocalAddr >> 24) & 0xFF);
+                    entry.remoteAddress = std::to_string((row.dwRemoteAddr >> 0) & 0xFF) + "." +
+                                          std::to_string((row.dwRemoteAddr >> 8) & 0xFF) + "." +
+                                          std::to_string((row.dwRemoteAddr >> 16) & 0xFF) + "." +
+                                          std::to_string((row.dwRemoteAddr >> 24) & 0xFF);
+                    entry.remotePort = ntohs((u_short)row.dwRemotePort);
+                    entry.pid = row.dwOwningPid;
+                    
+                    // 状态转换
+                    switch (row.dwState) {
+                        case MIB_TCP_STATE_CLOSED: entry.state = "CLOSED"; break;
+                        case MIB_TCP_STATE_LISTEN: entry.state = "LISTENING"; break;
+                        case MIB_TCP_STATE_SYN_SENT: entry.state = "SYN_SENT"; break;
+                        case MIB_TCP_STATE_SYN_RCVD: entry.state = "SYN_RCVD"; break;
+                        case MIB_TCP_STATE_ESTAB: entry.state = "ESTABLISHED"; break;
+                        case MIB_TCP_STATE_FIN_WAIT1: entry.state = "FIN_WAIT1"; break;
+                        case MIB_TCP_STATE_FIN_WAIT2: entry.state = "FIN_WAIT2"; break;
+                        case MIB_TCP_STATE_CLOSE_WAIT: entry.state = "CLOSE_WAIT"; break;
+                        case MIB_TCP_STATE_CLOSING: entry.state = "CLOSING"; break;
+                        case MIB_TCP_STATE_LAST_ACK: entry.state = "LAST_ACK"; break;
+                        case MIB_TCP_STATE_TIME_WAIT: entry.state = "TIME_WAIT"; break;
+                        case MIB_TCP_STATE_DELETE_TCB: entry.state = "DELETE_TCB"; break;
+                        default: entry.state = "UNKNOWN";
+                    }
+                    
+                    // 获取进程名
+                    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, row.dwOwningPid);
+                    if (hProcess) {
+                        char processName[MAX_PATH] = {0};
+                        if (GetModuleFileNameExA(hProcess, nullptr, processName, MAX_PATH)) {
+                            std::string name = processName;
+                            size_t pos = name.find_last_of("\\/");
+                            entry.processName = (pos != std::string::npos) ? name.substr(pos + 1) : name;
+                        }
+                        CloseHandle(hProcess);
+                    }
+                    if (entry.processName.empty()) entry.processName = "-";
+                    
+                    // 过滤状态
+                    if (state == "all" || 
+                        (state == "listening" && entry.state == "LISTENING") ||
+                        (state == "established" && entry.state == "ESTABLISHED") ||
+                        (state == "time_wait" && entry.state == "TIME_WAIT") ||
+                        (state == "close_wait" && entry.state == "CLOSE_WAIT")) {
+                        ports.push_back(entry);
+                    }
+                }
+            }
+            if (pTcpTable) free(pTcpTable);
+        }
+        
+        // 获取 TCP IPv6 连接表
+        PMIB_TCP6TABLE_OWNER_PID pTcp6Table = nullptr;
+        size = 0;
+        if (GetExtendedTcpTable(nullptr, &size, FALSE, AF_INET6, TCP_TABLE_OWNER_PID_ALL, 0) == ERROR_INSUFFICIENT_BUFFER) {
+            pTcp6Table = (PMIB_TCP6TABLE_OWNER_PID)malloc(size);
+            if (pTcp6Table && GetExtendedTcpTable(pTcp6Table, &size, FALSE, AF_INET6, TCP_TABLE_OWNER_PID_ALL, 0) == NO_ERROR) {
+                for (DWORD i = 0; i < pTcp6Table->dwNumEntries; i++) {
+                    MIB_TCP6ROW_OWNER_PID& row = pTcp6Table->table[i];
+                    PortEntry entry;
+                    entry.port = ntohs((u_short)row.dwLocalPort);
+                    entry.protocol = "TCP6";
+                    
+                    char localAddr[INET6_ADDRSTRLEN] = {0};
+                    inet_ntop(AF_INET6, row.ucLocalAddr, localAddr, sizeof(localAddr));
+                    entry.localAddress = std::string(localAddr);
+                    
+                    char remoteAddr[INET6_ADDRSTRLEN] = {0};
+                    inet_ntop(AF_INET6, row.ucRemoteAddr, remoteAddr, sizeof(remoteAddr));
+                    entry.remoteAddress = std::string(remoteAddr);
+                    
+                    entry.remotePort = ntohs((u_short)row.dwRemotePort);
+                    entry.pid = row.dwOwningPid;
+                    
+                    switch (row.dwState) {
+                        case MIB_TCP_STATE_CLOSED: entry.state = "CLOSED"; break;
+                        case MIB_TCP_STATE_LISTEN: entry.state = "LISTENING"; break;
+                        case MIB_TCP_STATE_SYN_SENT: entry.state = "SYN_SENT"; break;
+                        case MIB_TCP_STATE_SYN_RCVD: entry.state = "SYN_RCVD"; break;
+                        case MIB_TCP_STATE_ESTAB: entry.state = "ESTABLISHED"; break;
+                        case MIB_TCP_STATE_FIN_WAIT1: entry.state = "FIN_WAIT1"; break;
+                        case MIB_TCP_STATE_FIN_WAIT2: entry.state = "FIN_WAIT2"; break;
+                        case MIB_TCP_STATE_CLOSE_WAIT: entry.state = "CLOSE_WAIT"; break;
+                        case MIB_TCP_STATE_CLOSING: entry.state = "CLOSING"; break;
+                        case MIB_TCP_STATE_LAST_ACK: entry.state = "LAST_ACK"; break;
+                        case MIB_TCP_STATE_TIME_WAIT: entry.state = "TIME_WAIT"; break;
+                        case MIB_TCP_STATE_DELETE_TCB: entry.state = "DELETE_TCB"; break;
+                        default: entry.state = "UNKNOWN";
+                    }
+                    
+                    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, row.dwOwningPid);
+                    if (hProcess) {
+                        char processName[MAX_PATH] = {0};
+                        if (GetModuleFileNameExA(hProcess, nullptr, processName, MAX_PATH)) {
+                            std::string name = processName;
+                            size_t pos = name.find_last_of("\\/");
+                            entry.processName = (pos != std::string::npos) ? name.substr(pos + 1) : name;
+                        }
+                        CloseHandle(hProcess);
+                    }
+                    if (entry.processName.empty()) entry.processName = "-";
+                    
+                    if (state == "all" || 
+                        (state == "listening" && entry.state == "LISTENING") ||
+                        (state == "established" && entry.state == "ESTABLISHED") ||
+                        (state == "time_wait" && entry.state == "TIME_WAIT") ||
+                        (state == "close_wait" && entry.state == "CLOSE_WAIT")) {
+                        ports.push_back(entry);
+                    }
+                }
+            }
+            if (pTcp6Table) free(pTcp6Table);
+        }
+    }
+    
+    // 获取 UDP 连接表
+    if (protocol == "all" || protocol == "udp") {
+        PMIB_UDPTABLE_OWNER_PID pUdpTable = nullptr;
+        ULONG size = 0;
+        
+        if (GetExtendedUdpTable(nullptr, &size, FALSE, AF_INET, UDP_TABLE_OWNER_PID, 0) == ERROR_INSUFFICIENT_BUFFER) {
+            pUdpTable = (PMIB_UDPTABLE_OWNER_PID)malloc(size);
+            if (pUdpTable && GetExtendedUdpTable(pUdpTable, &size, FALSE, AF_INET, UDP_TABLE_OWNER_PID, 0) == NO_ERROR) {
+                for (DWORD i = 0; i < pUdpTable->dwNumEntries; i++) {
+                    MIB_UDPROW_OWNER_PID& row = pUdpTable->table[i];
+                    PortEntry entry;
+                    entry.port = ntohs((u_short)row.dwLocalPort);
+                    entry.protocol = "UDP";
+                    entry.state = "LISTENING";
+                    entry.localAddress = std::to_string((row.dwLocalAddr >> 0) & 0xFF) + "." +
+                                         std::to_string((row.dwLocalAddr >> 8) & 0xFF) + "." +
+                                         std::to_string((row.dwLocalAddr >> 16) & 0xFF) + "." +
+                                         std::to_string((row.dwLocalAddr >> 24) & 0xFF);
+                    entry.remoteAddress = "-";
+                    entry.remotePort = 0;
+                    entry.pid = row.dwOwningPid;
+                    
+                    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, row.dwOwningPid);
+                    if (hProcess) {
+                        char processName[MAX_PATH] = {0};
+                        if (GetModuleFileNameExA(hProcess, nullptr, processName, MAX_PATH)) {
+                            std::string name = processName;
+                            size_t pos = name.find_last_of("\\/");
+                            entry.processName = (pos != std::string::npos) ? name.substr(pos + 1) : name;
+                        }
+                        CloseHandle(hProcess);
+                    }
+                    if (entry.processName.empty()) entry.processName = "-";
+                    
+                    if (state == "all" || state == "listening") {
+                        ports.push_back(entry);
+                    }
+                }
+            }
+            if (pUdpTable) free(pUdpTable);
+        }
+        
+        // 获取 UDP IPv6 连接表
+        PMIB_UDP6TABLE_OWNER_PID pUdp6Table = nullptr;
+        size = 0;
+        if (GetExtendedUdpTable(nullptr, &size, FALSE, AF_INET6, UDP_TABLE_OWNER_PID, 0) == ERROR_INSUFFICIENT_BUFFER) {
+            pUdp6Table = (PMIB_UDP6TABLE_OWNER_PID)malloc(size);
+            if (pUdp6Table && GetExtendedUdpTable(pUdp6Table, &size, FALSE, AF_INET6, UDP_TABLE_OWNER_PID, 0) == NO_ERROR) {
+                for (DWORD i = 0; i < pUdp6Table->dwNumEntries; i++) {
+                    MIB_UDP6ROW_OWNER_PID& row = pUdp6Table->table[i];
+                    PortEntry entry;
+                    entry.port = ntohs((u_short)row.dwLocalPort);
+                    entry.protocol = "UDP6";
+                    entry.state = "LISTENING";
+                    
+                    char localAddr[INET6_ADDRSTRLEN] = {0};
+                    inet_ntop(AF_INET6, row.ucLocalAddr, localAddr, sizeof(localAddr));
+                    entry.localAddress = std::string(localAddr);
+                    
+                    entry.remoteAddress = "-";
+                    entry.remotePort = 0;
+                    entry.pid = row.dwOwningPid;
+                    
+                    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, row.dwOwningPid);
+                    if (hProcess) {
+                        char processName[MAX_PATH] = {0};
+                        if (GetModuleFileNameExA(hProcess, nullptr, processName, MAX_PATH)) {
+                            std::string name = processName;
+                            size_t pos = name.find_last_of("\\/");
+                            entry.processName = (pos != std::string::npos) ? name.substr(pos + 1) : name;
+                        }
+                        CloseHandle(hProcess);
+                    }
+                    if (entry.processName.empty()) entry.processName = "-";
+                    
+                    if (state == "all" || state == "listening") {
+                        ports.push_back(entry);
+                    }
+                }
+            }
+            if (pUdp6Table) free(pUdp6Table);
+        }
+    }
+    
+    return ports;
+}
+
+std::vector<PortEntry> WfpManager::getListeningPorts() {
+    std::vector<PortEntry> ports;
+    auto allPorts = getPorts("all", "listening");
+    for (const auto& p : allPorts) {
+        if (p.state == "LISTENING") {
+            ports.push_back(p);
+        }
+    }
+    return ports;
+}
+
+std::vector<PortEntry> WfpManager::getEstablishedConnections() {
+    std::vector<PortEntry> ports;
+    auto allPorts = getPorts("tcp", "established");
+    for (const auto& p : allPorts) {
+        if (p.state == "ESTABLISHED") {
+            ports.push_back(p);
+        }
+    }
+    return ports;
+}
+
+bool WfpManager::closeConnection(uint16_t localPort, const std::string& protocol) {
+    // 只支持关闭 TCP 连接
+    if (protocol != "tcp" && protocol != "TCP") {
+        lastError_ = "Only TCP connections can be closed";
+        return false;
+    }
+    
+    PMIB_TCPTABLE_OWNER_PID pTcpTable = nullptr;
+    ULONG size = 0;
+    
+    if (GetExtendedTcpTable(nullptr, &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0) == ERROR_INSUFFICIENT_BUFFER) {
+        pTcpTable = (PMIB_TCPTABLE_OWNER_PID)malloc(size);
+        if (pTcpTable && GetExtendedTcpTable(pTcpTable, &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0) == NO_ERROR) {
+            for (DWORD i = 0; i < pTcpTable->dwNumEntries; i++) {
+                MIB_TCPROW_OWNER_PID& row = pTcpTable->table[i];
+                if (ntohs((u_short)row.dwLocalPort) == localPort && 
+                    row.dwState != MIB_TCP_STATE_LISTEN &&
+                    row.dwState != MIB_TCP_STATE_CLOSED) {
+                    
+                    // 尝试关闭连接
+                    MIB_TCPROW rowToClose;
+                    rowToClose.dwState = MIB_TCP_STATE_DELETE_TCB;
+                    rowToClose.dwLocalAddr = row.dwLocalAddr;
+                    rowToClose.dwLocalPort = row.dwLocalPort;
+                    rowToClose.dwRemoteAddr = row.dwRemoteAddr;
+                    rowToClose.dwRemotePort = row.dwRemotePort;
+                    
+                    DWORD result = SetTcpEntry(&rowToClose);
+                    free(pTcpTable);
+                    
+                    if (result == NO_ERROR) {
+                        return true;
+                    } else {
+                        lastError_ = "Failed to close connection, error: " + std::to_string(result);
+                        return false;
+                    }
+                }
+            }
+        }
+        if (pTcpTable) free(pTcpTable);
+    }
+    
+    lastError_ = "Connection not found on port " + std::to_string(localPort);
+    return false;
+}
+
+int WfpManager::closeConnectionsByPort(uint16_t port, const std::string& protocol) {
+    int closedCount = 0;
+    
+    // 关闭 IPv4 TCP 连接
+    PMIB_TCPTABLE_OWNER_PID pTcpTable = nullptr;
+    ULONG size = 0;
+    
+    if (GetExtendedTcpTable(nullptr, &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0) == ERROR_INSUFFICIENT_BUFFER) {
+        pTcpTable = (PMIB_TCPTABLE_OWNER_PID)malloc(size);
+        if (pTcpTable && GetExtendedTcpTable(pTcpTable, &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0) == NO_ERROR) {
+            for (DWORD i = 0; i < pTcpTable->dwNumEntries; i++) {
+                MIB_TCPROW_OWNER_PID& row = pTcpTable->table[i];
+                if (ntohs((u_short)row.dwLocalPort) == port && 
+                    row.dwState != MIB_TCP_STATE_LISTEN &&
+                    row.dwState != MIB_TCP_STATE_CLOSED) {
+                    
+                    MIB_TCPROW rowToClose;
+                    rowToClose.dwState = MIB_TCP_STATE_DELETE_TCB;
+                    rowToClose.dwLocalAddr = row.dwLocalAddr;
+                    rowToClose.dwLocalPort = row.dwLocalPort;
+                    rowToClose.dwRemoteAddr = row.dwRemoteAddr;
+                    rowToClose.dwRemotePort = row.dwRemotePort;
+                    
+                    if (SetTcpEntry(&rowToClose) == NO_ERROR) {
+                        closedCount++;
+                    }
+                }
+            }
+        }
+        if (pTcpTable) free(pTcpTable);
+    }
+    
+    return closedCount;
+}
+
+int WfpManager::closeConnectionsByPid(uint32_t pid) {
+    int closedCount = 0;
+    
+    // 关闭指定进程的所有 TCP 连接
+    PMIB_TCPTABLE_OWNER_PID pTcpTable = nullptr;
+    ULONG size = 0;
+    
+    if (GetExtendedTcpTable(nullptr, &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0) == ERROR_INSUFFICIENT_BUFFER) {
+        pTcpTable = (PMIB_TCPTABLE_OWNER_PID)malloc(size);
+        if (pTcpTable && GetExtendedTcpTable(pTcpTable, &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0) == NO_ERROR) {
+            for (DWORD i = 0; i < pTcpTable->dwNumEntries; i++) {
+                MIB_TCPROW_OWNER_PID& row = pTcpTable->table[i];
+                if (row.dwOwningPid == pid && 
+                    row.dwState != MIB_TCP_STATE_LISTEN &&
+                    row.dwState != MIB_TCP_STATE_CLOSED) {
+                    
+                    MIB_TCPROW rowToClose;
+                    rowToClose.dwState = MIB_TCP_STATE_DELETE_TCB;
+                    rowToClose.dwLocalAddr = row.dwLocalAddr;
+                    rowToClose.dwLocalPort = row.dwLocalPort;
+                    rowToClose.dwRemoteAddr = row.dwRemoteAddr;
+                    rowToClose.dwRemotePort = row.dwRemotePort;
+                    
+                    if (SetTcpEntry(&rowToClose) == NO_ERROR) {
+                        closedCount++;
+                    }
+                }
+            }
+        }
+        if (pTcpTable) free(pTcpTable);
+    }
+    
+    return closedCount;
 }

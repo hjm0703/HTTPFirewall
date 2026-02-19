@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP白名单 - WFP Firewall</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 主题切换按钮 -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">🌙</button>
+    
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">🔥 WFP Firewall</a>
+        <div class="navbar-nav">
+            <a href="ip.html" class="nav-link active">✅ IP白名单</a>
+            <a href="mac.html" class="nav-link">🔗 MAC白名单</a>
+            <a href="ports.html" class="nav-link">🔌 端口管理</a>
+            <a href="lan.html" class="nav-link">🌐 局域网</a>
+            <a href="logs.html" class="nav-link">📋 拦截日志</a>
+            <a href="cve.html" class="nav-link">🛡️ CVE防护</a>
+        </div>
+    </nav>
+    
+    <!-- 粒子背景 -->
+    <canvas id="particles-canvas"></canvas>
+    
+    <!-- 主内容 -->
+    <main class="main-content">
+        <div class="container">
+            <div class="panel ip-panel">
+                <h2>IP 地址白名单</h2>
+                <div class="cve-card medium">
+                    <div class="cve-title">⚠️ IP 白名单防护</div>
+                    <div class="cve-desc">启用后，只有白名单中的 IP 地址才能与本机建立入站连接。未在白名单中的 IP 将被拒绝，有效防止未授权访问。</div>
+                </div>
+                <div class="cve-card" style="display:flex;justify-content:space-between;align-items:center">
+                    <div><strong>IP 过滤</strong><br><small style="color:var(--text-muted)" id="ipFilterDesc">未启用</small></div>
+                    <label class="toggle-switch"><input type="checkbox" id="ipToggle" onchange="toggleIpFilter()"><span class="toggle-slider"></span></label>
+                </div>
+                
+                <h2 style="margin-top:25px">添加 IP 地址</h2>
+                <form id="addForm">
+                    <div class="form-row">
+                        <div class="form-group"><label>IP地址</label><input type="text" id="ipAddr" placeholder="192.168.1.1 或 2001:db8::1"></div>
+                        <div class="form-group"><label>描述</label><input type="text" id="ipDesc" placeholder="备注"></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">添加</button>
+                </form>
+                
+                <div class="header-actions" style="margin-top:20px">
+                    <h2>白名单列表</h2>
+                    <div class="actions">
+                        <button class="btn btn-secondary btn-sm" onclick="loadIps()">刷新</button>
+                        <button class="btn btn-danger btn-sm" onclick="clearAllIps()">清空</button>
+                    </div>
+                </div>
+                <div class="search-box"><input type="text" id="search" placeholder="搜索..." oninput="filterIps()"></div>
+                <div class="ip-list" id="ipList"></div>
+            </div>
+        </div>
+    </main>
+    
+    <div class="toast" id="toast"></div>
+
+    <script src="common.js"></script>
+    <script>
+        let ipData = [];
+        
+        const loadIps = async () => { 
+            try { 
+                const r = await fetch('/api/ips'); 
+                ipData = await r.json(); 
+                renderIps(); 
+            } catch(e){ showToast('加载失败', 'error'); } 
+        };
+        
+        const renderIps = (f = '') => { 
+            const el = document.getElementById('ipList'); 
+            const d = ipData.filter(i => i.ip.includes(f) || i.description.includes(f)); 
+            if (!d.length) { 
+                el.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>暂无IP白名单</p></div>'; 
+                return; 
+            } 
+            el.innerHTML = d.map(i => '<div class="ip-item"><div class="device-info"><span class="ip-type-badge ' + (i.ip_type === 'IPv6' ? 'ipv6' : 'ipv4') + '">' + (i.ip_type || 'IPv4') + '</span><span class="ip-address">' + i.ip + '</span><span class="ip-description">' + (i.description || '-') + '</span></div><button class="btn btn-danger btn-sm" onclick="removeIp(\'' + i.ip + '\')">移除</button></div>').join(''); 
+        };
+        
+        const filterIps = () => renderIps(document.getElementById('search').value);
+        
+        const toggleIpFilter = async () => { 
+            const on = document.getElementById('ipToggle').checked; 
+            try { 
+                const params = new URLSearchParams(); 
+                params.append('enabled', on ? 'true' : 'false'); 
+                await fetch('/api/ips/toggle', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
+                document.getElementById('ipFilterDesc').textContent = on ? '已启用' : '未启用'; 
+                showToast(on ? 'IP过滤已开启' : 'IP过滤已关闭'); 
+            } catch(e) { 
+                document.getElementById('ipToggle').checked = !on; 
+            } 
+        };
+        
+        document.getElementById('addForm').onsubmit = async e => { 
+            e.preventDefault(); 
+            const ip = document.getElementById('ipAddr').value.trim(), desc = document.getElementById('ipDesc').value.trim(); 
+            if (!ip) return; 
+            try { 
+                const params = new URLSearchParams(); 
+                params.append('ip', ip); 
+                params.append('description', desc); 
+                const r = await fetch('/api/ips', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
+                const d = await r.json(); 
+                if (d.success) { 
+                    showToast('已添加到白名单'); 
+                    document.getElementById('addForm').reset(); 
+                    loadIps(); 
+                } else showToast(d.error, 'error'); 
+            } catch(e){ 
+                showToast('失败', 'error'); 
+            } 
+        };
+        
+        const removeIp = async ip => { 
+            if (!confirm('从白名单移除 ' + ip + '?')) return; 
+            try { 
+                const params = new URLSearchParams(); 
+                params.append('ip', ip); 
+                await fetch('/api/ips', {method:'DELETE', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
+                showToast('已移除'); 
+                loadIps(); 
+            } catch(e){} 
+        };
+        
+        const clearAllIps = async () => { 
+            if (!confirm('清空所有IP白名单?')) return; 
+            await fetch('/api/ips/all', {method:'DELETE'}); 
+            showToast('已清空'); 
+            loadIps(); 
+        };
+        
+        const loadStatus = async () => {
+            try {
+                const r = await fetch('/api/status');
+                const d = await r.json();
+                document.getElementById('ipToggle').checked = d.ipFilterEnabled;
+                document.getElementById('ipFilterDesc').textContent = d.ipFilterEnabled ? '已启用' : '未启用';
+            } catch(e){}
+        };
+        
+        // URL 参数处理
+        const handleUrlParams = () => {
+            const params = new URLSearchParams(window.location.search);
+            const ip = params.get('ip');
+            const desc = params.get('desc');
+            if (ip) {
+                document.getElementById('ipAddr').value = ip;
+                if (desc) document.getElementById('ipDesc').value = desc;
+            }
+        };
+        
+        // 初始化
+        loadIps();
+        loadStatus();
+        handleUrlParams();
+    </script>
+</body>
+</html>

@@ -52,6 +52,7 @@ IpStore::IpStore(const std::string& fp) : filePath_(fp), ipFilterEnabled_(false)
     cveConfig_.cve2021_34527_enabled = false;
     cveConfig_.cve2024_21745_enabled = false;
     cveConfig_.cve2021_44228_enabled = false;
+    cveConfig_.highRiskPorts_enabled = false;
 }
 IpStore::~IpStore() {}
 
@@ -157,7 +158,24 @@ bool IpStore::load() {
                     else if (ck == "cve2021_34527_enabled") cveConfig_.cve2021_34527_enabled = parseBool(c, p);
                     else if (ck == "cve2024_21745_enabled") cveConfig_.cve2024_21745_enabled = parseBool(c, p);
                     else if (ck == "cve2021_44228_enabled") cveConfig_.cve2021_44228_enabled = parseBool(c, p);
+                    else if (ck == "highRiskPorts_enabled") cveConfig_.highRiskPorts_enabled = parseBool(c, p);
                     else while (p < c.size() && c[p] != ',' && c[p] != '}') p++;
+                }
+            } else if (key == "mac_hostnames" && c[p] == '{') {
+                p++;
+                while (p < c.size()) {
+                    skipWS(c, p);
+                    if (c[p] == '}') { p++; break; }
+                    if (c[p] == ',') { p++; continue; }
+                    
+                    std::string macKey = parseStr(c, p);
+                    skipWS(c, p); if (p < c.size() && c[p] == ':') p++; skipWS(c, p);
+                    std::string hostname = parseStr(c, p);
+                    
+                    if (!macKey.empty()) {
+                        MacHostnameEntry entry = {macKey, hostname};
+                        macHostnames_.push_back(entry);
+                    }
                 }
             } else {
                 if (c[p] == '"') parseStr(c, p);
@@ -204,18 +222,29 @@ bool IpStore::save() {
     }
     f << "  ],\n";
     
+    // MAC 主机名映射
+    f << "  \"mac_hostnames\": {\n";
+    for (size_t i = 0; i < macHostnames_.size(); i++) {
+        const auto& h = macHostnames_[i];
+        f << "    \"" << escapeJson(h.mac) << "\": \"" << escapeJson(h.hostname) << "\"";
+        if (i < macHostnames_.size() - 1) f << ",";
+        f << "\n";
+    }
+    f << "  },\n";
+    
     // CVE 配置
-    f << "  \"cve_config\": {"
-      << "\"cve2017_0144_enabled\": " << (cveConfig_.cve2017_0144_enabled ? "true" : "false") << ", "
-      << "\"cve2024_38063_enabled\": " << (cveConfig_.cve2024_38063_enabled ? "true" : "false") << ", "
-      << "\"cve2023_44487_enabled\": " << (cveConfig_.cve2023_44487_enabled ? "true" : "false") << ", "
-      << "\"cve2023_38545_enabled\": " << (cveConfig_.cve2023_38545_enabled ? "true" : "false") << ", "
-      << "\"cve2024_45177_enabled\": " << (cveConfig_.cve2024_45177_enabled ? "true" : "false") << ", "
-      << "\"cve2023_23397_enabled\": " << (cveConfig_.cve2023_23397_enabled ? "true" : "false") << ", "
-      << "\"cve2021_34527_enabled\": " << (cveConfig_.cve2021_34527_enabled ? "true" : "false") << ", "
-      << "\"cve2024_21745_enabled\": " << (cveConfig_.cve2024_21745_enabled ? "true" : "false") << ", "
-      << "\"cve2021_44228_enabled\": " << (cveConfig_.cve2021_44228_enabled ? "true" : "false")
-      << "}\n}\n";
+    f << "  \"cve_config\": {\n";
+    f << "    \"cve2017_0144_enabled\": " << (cveConfig_.cve2017_0144_enabled ? "true" : "false") << ",\n";
+    f << "    \"cve2024_38063_enabled\": " << (cveConfig_.cve2024_38063_enabled ? "true" : "false") << ",\n";
+    f << "    \"cve2023_44487_enabled\": " << (cveConfig_.cve2023_44487_enabled ? "true" : "false") << ",\n";
+    f << "    \"cve2023_38545_enabled\": " << (cveConfig_.cve2023_38545_enabled ? "true" : "false") << ",\n";
+    f << "    \"cve2024_45177_enabled\": " << (cveConfig_.cve2024_45177_enabled ? "true" : "false") << ",\n";
+    f << "    \"cve2023_23397_enabled\": " << (cveConfig_.cve2023_23397_enabled ? "true" : "false") << ",\n";
+    f << "    \"cve2021_34527_enabled\": " << (cveConfig_.cve2021_34527_enabled ? "true" : "false") << ",\n";
+    f << "    \"cve2024_21745_enabled\": " << (cveConfig_.cve2024_21745_enabled ? "true" : "false") << ",\n";
+    f << "    \"cve2021_44228_enabled\": " << (cveConfig_.cve2021_44228_enabled ? "true" : "false") << ",\n";
+    f << "    \"highRiskPorts_enabled\": " << (cveConfig_.highRiskPorts_enabled ? "true" : "false") << "\n";
+    f << "  }\n}\n";
     return true;
 }
 
@@ -293,5 +322,46 @@ void IpStore::setCve2024_21745Enabled(bool e) { cveConfig_.cve2024_21745_enabled
 bool IpStore::isCve2024_21745Enabled() const { return cveConfig_.cve2024_21745_enabled; }
 void IpStore::setCve2021_44228Enabled(bool e) { cveConfig_.cve2021_44228_enabled = e; save(); }
 bool IpStore::isCve2021_44228Enabled() const { return cveConfig_.cve2021_44228_enabled; }
+void IpStore::setHighRiskPortsEnabled(bool e) { cveConfig_.highRiskPorts_enabled = e; save(); }
+bool IpStore::isHighRiskPortsEnabled() const { return cveConfig_.highRiskPorts_enabled; }
 CveConfig IpStore::getCveConfig() const { return cveConfig_; }
 std::string IpStore::getLastError() const { return lastError_; }
+
+// ==================== MAC 主机名映射 ====================
+
+bool IpStore::setMacHostname(const std::string& mac, const std::string& hostname) {
+    // 查找是否已存在
+    auto it = std::find_if(macHostnames_.begin(), macHostnames_.end(), 
+        [&mac](const MacHostnameEntry& e) { return e.mac == mac; });
+    
+    if (it != macHostnames_.end()) {
+        // 更新现有记录
+        it->hostname = hostname;
+    } else {
+        // 添加新记录
+        MacHostnameEntry entry = {mac, hostname};
+        macHostnames_.push_back(entry);
+    }
+    return save();
+}
+
+std::string IpStore::getMacHostname(const std::string& mac) const {
+    auto it = std::find_if(macHostnames_.begin(), macHostnames_.end(), 
+        [&mac](const MacHostnameEntry& e) { return e.mac == mac; });
+    return (it != macHostnames_.end()) ? it->hostname : "";
+}
+
+std::vector<MacHostnameEntry> IpStore::getAllMacHostnames() const {
+    return macHostnames_;
+}
+
+bool IpStore::removeMacHostname(const std::string& mac) {
+    auto it = std::find_if(macHostnames_.begin(), macHostnames_.end(), 
+        [&mac](const MacHostnameEntry& e) { return e.mac == mac; });
+    if (it == macHostnames_.end()) { 
+        lastError_ = "MAC hostname not found: " + mac; 
+        return false; 
+    }
+    macHostnames_.erase(it);
+    return save();
+}

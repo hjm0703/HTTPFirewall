@@ -52,6 +52,8 @@ struct CveProtectionStatus {
     bool cve2021_44228;
     // 全局 IPv6 阻断
     bool ipv6Blocked;
+    // 高危端口防护 (135, 137, 138, 139, 445)
+    bool highRiskPortsBlocked;
 };
 
 // 局域网设备信息
@@ -82,6 +84,18 @@ struct MacWhitelistEntry {
     std::string description;    // 描述/设备名
     std::string ipv4;           // 关联的 IPv4
     bool isActive;              // 是否启用
+};
+
+// 端口状态条目
+struct PortEntry {
+    uint16_t port;              // 端口号
+    std::string protocol;       // 协议 (TCP/UDP)
+    std::string state;          // 状态 (LISTENING, ESTABLISHED, TIME_WAIT, etc.)
+    std::string localAddress;   // 本地地址
+    std::string remoteAddress;  // 远程地址
+    uint16_t remotePort;        // 远程端口
+    uint32_t pid;               // 进程 ID
+    std::string processName;    // 进程名称
 };
 
 // WinDivert 防火墙管理器
@@ -140,6 +154,11 @@ public:
     bool enableCve2021_44228Protection();
     bool disableCve2021_44228Protection();
     
+    // 高危端口防护 - 阻断 135, 137, 138, 139, 445 端口
+    bool enableHighRiskPortsProtection();
+    bool disableHighRiskPortsProtection();
+    bool isHighRiskPortsProtected() const;
+    
     CveProtectionStatus getCveProtectionStatus() const;
     bool isCveProtectionEnabled() const;
     void setCveProtection(const std::string& cveId, bool enabled);
@@ -164,6 +183,14 @@ public:
     std::vector<BlockLogEntry> getBlockLogs() const;
     void clearBlockLogs();
     int getBlockLogCount() const;
+
+    // 端口管理功能
+    std::vector<PortEntry> getPorts(const std::string& protocol = "all", const std::string& state = "all");
+    std::vector<PortEntry> getListeningPorts();
+    std::vector<PortEntry> getEstablishedConnections();
+    bool closeConnection(uint16_t localPort, const std::string& protocol = "tcp");
+    int closeConnectionsByPort(uint16_t port, const std::string& protocol = "tcp");
+    int closeConnectionsByPid(uint32_t pid);
 
     // 通用方法
     std::string getLastError() const;

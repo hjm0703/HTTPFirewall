@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVE防护 - WFP Firewall</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 主题切换按钮 -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">🌙</button>
+    
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">🔥 WFP Firewall</a>
+        <div class="navbar-nav">
+            <a href="ip.html" class="nav-link">✅ IP白名单</a>
+            <a href="mac.html" class="nav-link">🔗 MAC白名单</a>
+            <a href="ports.html" class="nav-link">🔌 端口管理</a>
+            <a href="lan.html" class="nav-link">🌐 局域网</a>
+            <a href="logs.html" class="nav-link">📋 拦截日志</a>
+            <a href="cve.html" class="nav-link active">🛡️ CVE防护</a>
+        </div>
+    </nav>
+    
+    <!-- 粒子背景 -->
+    <canvas id="particles-canvas"></canvas>
+    
+    <!-- 主内容 -->
+    <main class="main-content">
+        <div class="container">
+            <div class="panel cve-panel">
+                <h2>🛡️ CVE 漏洞防护</h2>
+                <div class="cve-card medium">
+                    <div class="cve-title">漏洞防护说明</div>
+                    <div class="cve-desc">针对已知高危漏洞提供网络层防护，通过阻断相关端口或协议流量来降低风险。建议保持开启所有防护。</div>
+                </div>
+                
+                <!-- CVE-2024-38063 -->
+                <div class="cve-card critical">
+                    <div class="cve-header">
+                        <div>
+                            <div class="cve-title">Windows TCP/IP IPv6 远程代码执行</div>
+                            <div class="cve-id">CVE-2024-38063</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="cve2024_38063" onchange="toggleCve('cve2024_38063')"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 9.8</span><span style="color:var(--text-muted);font-size:11px">2024年7月</span></div>
+                    <div class="cve-desc">Windows TCP/IP 协议栈存在整数下溢漏洞，攻击者可通过发送特制 IPv6 数据包远程执行代码，无需用户交互。</div>
+                    <div class="cve-protection">🛡️ 防护方式：阻断所有 IPv6 流量</div>
+                </div>
+                
+                <!-- CVE-2023-44487 -->
+                <div class="cve-card high">
+                    <div class="cve-header">
+                        <div>
+                            <div class="cve-title">HTTP/2 Rapid Reset DoS 攻击</div>
+                            <div class="cve-id">CVE-2023-44487</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="cve2023_44487" onchange="toggleCve('cve2023_44487')"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="cve-meta"><span class="cve-cvss high">CVSS 7.5</span><span style="color:var(--text-muted);font-size:11px">2023年10月</span></div>
+                    <div class="cve-desc">HTTP/2 协议实现存在漏洞，攻击者可发送大量 RST_STREAM 帧导致服务器资源耗尽，造成拒绝服务攻击。</div>
+                    <div class="cve-protection">🛡️ 防护方式：限制异常 HTTP/2 流量</div>
+                </div>
+                
+                <!-- CVE-2023-38545 -->
+                <div class="cve-card critical">
+                    <div class="cve-header">
+                        <div>
+                            <div class="cve-title">curl SOCKS5 堆缓冲区溢出</div>
+                            <div class="cve-id">CVE-2023-38545</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="cve2023_38545" onchange="toggleCve('cve2023_38545')"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 9.8</span><span style="color:var(--text-muted);font-size:11px">2023年10月</span></div>
+                    <div class="cve-desc">curl 库在处理 SOCKS5 代理时存在堆缓冲区溢出漏洞，当主机名超过 255 字节时可导致远程代码执行。</div>
+                    <div class="cve-protection">🛡️ 防护方式：阻断 SOCKS5 代理流量（端口 1080）</div>
+                </div>
+                
+                <!-- CVE-2017-0144 EternalBlue -->
+                <div class="cve-card critical">
+                    <div class="cve-header">
+                        <div>
+                            <div class="cve-title">EternalBlue 永恒之蓝</div>
+                            <div class="cve-id">CVE-2017-0144</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="cve2017_0144" onchange="toggleCve('cve2017_0144')"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 8.8</span><span style="color:var(--text-muted);font-size:11px">2017年3月</span></div>
+                    <div class="cve-desc">Windows SMBv1 服务器存在远程代码执行漏洞，攻击者可发送特制数据包执行任意代码。WannaCry 勒索病毒利用此漏洞传播。</div>
+                    <div class="cve-protection">🛡️ 防护方式：阻断 SMB 端口 445 入站流量</div>
+                </div>
+                
+                <!-- CVE-2024-45177 -->
+                <div class="cve-card critical">
+                    <div class="cve-header">
+                        <div>
+                            <div class="cve-title">Windows RDP 远程代码执行</div>
+                            <div class="cve-id">CVE-2024-45177</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="cve2024_45177" onchange="toggleCve('cve2024_45177')"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 9.8</span><span style="color:var(--text-muted);font-size:11px">2024年9月</span></div>
+                    <div class="cve-desc">Windows 远程桌面协议存在远程代码执行漏洞，攻击者可通过 RDP 连接执行任意代码。</div>
+                    <div class="cve-protection">🛡️ 防护方式：阻断 RDP 端口 3389 入站流量</div>
+                </div>
+                
+                <!-- CVE-2023-23397 -->
+                <div class="cve-card high">
+                    <div class="cve-header">
+                        <div>
+                            <div class="cve-title">Microsoft Outlook 权限提升</div>
+                            <div class="cve-id">CVE-2023-23397</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="cve2023_23397" onchange="toggleCve('cve2023_23397')"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="cve-meta"><span class="cve-cvss high">CVSS 9.1</span><span style="color:var(--text-muted);font-size:11px">2023年3月</span></div>
+                    <div class="cve-desc">Microsoft Outlook 存在权限提升漏洞，攻击者可利用特制邮件触发 NTLM 认证，窃取用户凭据。</div>
+                    <div class="cve-protection">🛡️ 防护方式：阻断可疑 UNC 路径流量</div>
+                </div>
+                
+                <!-- CVE-2021-34527 -->
+                <div class="cve-card critical">
+                    <div class="cve-header">
+                        <div>
+                            <div class="cve-title">PrintNightmare 打印机漏洞</div>
+                            <div class="cve-id">CVE-2021-34527</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="cve2021_34527" onchange="toggleCve('cve2021_34527')"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 9.0</span><span style="color:var(--text-muted);font-size:11px">2021年6月</span></div>
+                    <div class="cve-desc">Windows 打印后台处理程序存在远程代码执行漏洞，攻击者可通过打印机服务执行任意代码。</div>
+                    <div class="cve-protection">🛡️ 防护方式：阻断打印机端口 9100 入站流量</div>
+                </div>
+                
+                <!-- CVE-2024-21745 -->
+                <div class="cve-card critical">
+                    <div class="cve-header">
+                        <div>
+                            <div class="cve-title">Windows DNS Server RCE</div>
+                            <div class="cve-id">CVE-2024-21745</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="cve2024_21745" onchange="toggleCve('cve2024_21745')"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 9.8</span><span style="color:var(--text-muted);font-size:11px">2024年2月</span></div>
+                    <div class="cve-desc">Windows DNS 服务器存在远程代码执行漏洞，攻击者可通过特制 DNS 请求执行任意代码。</div>
+                    <div class="cve-protection">🛡️ 防护方式：阻断异常 DNS 流量</div>
+                </div>
+                
+                <!-- CVE-2021-44228 -->
+                <div class="cve-card critical">
+                    <div class="cve-header">
+                        <div>
+                            <div class="cve-title">Log4j 远程代码执行 (Log4Shell)</div>
+                            <div class="cve-id">CVE-2021-44228</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="cve2021_44228" onchange="toggleCve('cve2021_44228')"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 10.0</span><span style="color:var(--text-muted);font-size:11px">2021年12月</span></div>
+                    <div class="cve-desc">Apache Log4j 存在严重的远程代码执行漏洞，攻击者可通过 JNDI 注入执行任意代码。影响广泛，被称为 Log4Shell。</div>
+                    <div class="cve-protection">🛡️ 防护方式：检测并阻断 JNDI 注入特征流量</div>
+                </div>
+            </div>
+            
+            <!-- 高危端口防护 -->
+            <div class="panel cve-panel" style="margin-top: 20px;">
+                <h2>🚨 高危端口防护</h2>
+                <div class="cve-card critical" style="border-left-color: #dc2626;">
+                    <div class="cve-header">
+                        <div>
+                            <div class="cve-title">高危端口阻断</div>
+                            <div class="cve-id">135, 137, 138, 139, 445</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="highRiskPorts" onchange="toggleCve('highRiskPorts')"><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="cve-meta"><span class="cve-cvss critical">持续防护</span><span style="color:var(--text-muted);font-size:11px">强烈建议开启</span></div>
+                    <div class="cve-desc">
+                        <strong>阻断以下高危端口的入站流量：</strong><br>
+                        • <strong>135</strong> - RPC 远程过程调用（冲击波病毒）<br>
+                        • <strong>137-139</strong> - NetBIOS（信息泄露、会话劫持）<br>
+                        • <strong>445</strong> - SMB 文件共享（永恒之蓝、WannaCry）
+                    </div>
+                    <div class="cve-protection">🛡️ 防护方式：持续阻断这些端口的入站连接请求</div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <div class="toast" id="toast"></div>
+
+    <script src="common.js"></script>
+    <script>
+        let cveStatus = {};
+        
+        const loadCveStatus = async () => {
+            try {
+                const r = await fetch('/api/cve/status');
+                cveStatus = await r.json();
+                for (const [k, v] of Object.entries(cveStatus)) {
+                    const el = document.getElementById(k);
+                    if (el) el.checked = v;
+                }
+            } catch(e){}
+        };
+        
+        const toggleCve = async (cveId) => { 
+            const el = document.getElementById(cveId);
+            const on = el.checked;
+            try { 
+                const params = new URLSearchParams(); 
+                params.append('cve', cveId); 
+                params.append('enabled', on ? 'true' : 'false'); 
+                await fetch('/api/cve/toggle', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
+                showToast(on ? '防护已开启' : '防护已关闭'); 
+            } catch(e){ 
+                el.checked = !on; 
+                showToast('操作失败', 'error'); 
+            } 
+        };
+        
+        // 初始化
+        loadCveStatus();
+    </script>
+</body>
+</html>

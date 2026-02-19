@@ -18,5 +18,18 @@
     {"mac": "01:00:5E:00:00:FC", "description": "Unknown", "ipv4": "224.0.0.252", "active": true},
     {"mac": "01:00:5E:7F:FF:FA", "description": "Unknown", "ipv4": "239.255.255.250", "active": true}
   ],
-  "cve_config": {"cve2017_0144_enabled": true, "cve2024_38063_enabled": true, "cve2023_44487_enabled": true, "cve2023_38545_enabled": true, "cve2024_45177_enabled": true, "cve2023_23397_enabled": false, "cve2021_34527_enabled": true, "cve2024_21745_enabled": true, "cve2021_44228_enabled": false}
+  "mac_hostnames": {
+  },
+  "cve_config": {
+    "cve2017_0144_enabled": true,
+    "cve2024_38063_enabled": true,
+    "cve2023_44487_enabled": true,
+    "cve2023_38545_enabled": true,
+    "cve2024_45177_enabled": true,
+    "cve2023_23397_enabled": false,
+    "cve2021_34527_enabled": true,
+    "cve2024_21745_enabled": true,
+    "cve2021_44228_enabled": false,
+    "highRiskPorts_enabled": true
+  }
 }

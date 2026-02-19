@@ -15,6 +15,13 @@ struct CveConfig {
     bool cve2021_34527_enabled;
     bool cve2024_21745_enabled;
     bool cve2021_44228_enabled;
+    bool highRiskPorts_enabled;
+};
+
+// MAC 主机名映射
+struct MacHostnameEntry {
+    std::string mac;
+    std::string hostname;
 };
 
 struct MacWhitelistData {
@@ -73,8 +80,16 @@ public:
     bool isCve2024_21745Enabled() const;
     void setCve2021_44228Enabled(bool enabled);
     bool isCve2021_44228Enabled() const;
+    void setHighRiskPortsEnabled(bool enabled);
+    bool isHighRiskPortsEnabled() const;
     CveConfig getCveConfig() const;
     std::string getLastError() const;
+    
+    // MAC 主机名映射
+    bool setMacHostname(const std::string& mac, const std::string& hostname);
+    std::string getMacHostname(const std::string& mac) const;
+    std::vector<MacHostnameEntry> getAllMacHostnames() const;
+    bool removeMacHostname(const std::string& mac);
 
 private:
     std::string filePath_;
@@ -83,6 +98,7 @@ private:
     bool ipFilterEnabled_;
     bool macFilterEnabled_;
     CveConfig cveConfig_;
+    std::vector<MacHostnameEntry> macHostnames_;
     std::string lastError_;
 };
 

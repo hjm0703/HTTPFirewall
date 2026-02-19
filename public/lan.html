@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>局域网扫描 - WFP Firewall</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .hostname-wrapper { display: flex; align-items: center; gap: 8px; }
+        .custom-badge { 
+            font-size: 9px; 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            background: rgba(34, 197, 94, 0.2); 
+            color: var(--success);
+            font-weight: 600;
+        }
+        .btn-edit { 
+            padding: 4px 8px; 
+            font-size: 11px; 
+            background: rgba(59, 130, 246, 0.2); 
+            color: var(--info); 
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        .btn-edit:hover { background: rgba(59, 130, 246, 0.3); }
+        
+        /* 弹窗样式 */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+        }
+        .modal h3 { margin-bottom: 16px; color: var(--text-primary); }
+        .modal input { 
+            width: 100%; 
+            padding: 12px; 
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface);
+            color: var(--text-primary);
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        .modal input:focus { outline: none; border-color: var(--accent-start); }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    </style>
+</head>
+<body>
+    <!-- 主题切换按钮 -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">🌙</button>
+    
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">🔥 WFP Firewall</a>
+        <div class="navbar-nav">
+            <a href="ip.html" class="nav-link">✅ IP白名单</a>
+            <a href="mac.html" class="nav-link">🔗 MAC白名单</a>
+            <a href="ports.html" class="nav-link">🔌 端口管理</a>
+            <a href="lan.html" class="nav-link active">🌐 局域网</a>
+            <a href="logs.html" class="nav-link">📋 拦截日志</a>
+            <a href="cve.html" class="nav-link">🛡️ CVE防护</a>
+        </div>
+    </nav>
+    
+    <!-- 粒子背景 -->
+    <canvas id="particles-canvas"></canvas>
+    
+    <!-- 主内容 -->
+    <main class="main-content">
+        <div class="container">
+            <div class="panel lan-panel">
+                <div class="header-actions">
+                    <h2>🌐 局域网设备</h2>
+                    <button class="btn btn-primary btn-sm" onclick="scanLan()">扫描</button>
+                </div>
+                <div class="cve-card medium">
+                    <div class="cve-title">局域网设备扫描</div>
+                    <div class="cve-desc">扫描局域网中的设备，查看 IP、MAC 地址等信息。可以修改设备主机名并保存，或添加到白名单。</div>
+                </div>
+                <div class="device-list" id="deviceList"></div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- 修改主机名弹窗 -->
+    <div class="modal-overlay" id="hostnameModal">
+        <div class="modal">
+            <h3>修改主机名</h3>
+            <input type="text" id="hostnameInput" placeholder="输入自定义主机名">
+            <input type="hidden" id="editingMac">
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeHostnameModal()">取消</button>
+                <button class="btn btn-danger" onclick="resetHostname()">重置</button>
+                <button class="btn btn-primary" onclick="saveHostname()">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast"></div>
+
+    <script src="common.js"></script>
+    <script>
+        let lanData = [];
+        let customHostnames = {};
+        
+        const loadHostnames = async () => {
+            try {
+                const r = await fetch('/api/lan/hostnames');
+                customHostnames = await r.json();
+            } catch(e) {}
+        };
+        
+        const loadLan = async () => { 
+            try { 
+                const r = await fetch('/api/lan'); 
+                lanData = await r.json();
+                await loadHostnames();
+                renderLan(); 
+            } catch(e){} 
+        };
+        
+        const getDisplayName = (device) => {
+            const custom = customHostnames[device.mac];
+            return custom ? custom : device.hostname;
+        };
+        
+        const hasCustomHostname = (mac) => {
+            return customHostnames[mac] && customHostnames[mac] !== '';
+        };
+        
+        const renderLan = () => { 
+            const el = document.getElementById('deviceList'); 
+            if (!lanData.length) { 
+                el.innerHTML = '<div class="empty-state"><div class="icon">🌐</div><p>点击扫描查看局域网设备</p></div>'; 
+                return; 
+            } 
+            el.innerHTML = lanData.map(d => {
+                const displayName = getDisplayName(d);
+                const isCustom = hasCustomHostname(d.mac);
+                return '<div class="device-item">' +
+                    '<div class="device-info">' +
+                        '<div class="hostname-wrapper">' +
+                            '<span class="device-hostname">' + displayName + '</span>' +
+                            (isCustom ? '<span class="custom-badge">自定义</span>' : '') +
+                            '<button class="btn btn-edit" onclick="openHostnameModal(\'' + d.mac + '\', \'' + escapeHtml(displayName) + '\')">✏️</button>' +
+                        '</div>' +
+                        '<span class="device-ip ipv4">' + d.ipv4 + '</span>' +
+                        '<span class="mac-addr">' + d.mac + '</span>' +
+                    '</div>' +
+                    '<div class="actions">' +
+                        '<button class="btn btn-success btn-sm" onclick="addIpFromLan(\'' + d.ipv4 + '\',\'' + escapeHtml(displayName) + '\')">加入IP白名单</button>' +
+                        '<button class="btn btn-success btn-sm" onclick="addMacFromLan(\'' + d.mac + '\',\'' + escapeHtml(displayName) + '\',\'' + d.ipv4 + '\')">加入MAC白名单</button>' +
+                    '</div>' +
+                '</div>';
+            }).join(''); 
+        };
+        
+        const escapeHtml = (str) => {
+            return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        };
+        
+        const openHostnameModal = (mac, currentName) => {
+            document.getElementById('editingMac').value = mac;
+            document.getElementById('hostnameInput').value = customHostnames[mac] || '';
+            document.getElementById('hostnameModal').classList.add('show');
+            document.getElementById('hostnameInput').focus();
+        };
+        
+        const closeHostnameModal = () => {
+            document.getElementById('hostnameModal').classList.remove('show');
+        };
+        
+        const saveHostname = async () => {
+            const mac = document.getElementById('editingMac').value;
+            const hostname = document.getElementById('hostnameInput').value.trim();
+            
+            try {
+                const params = new URLSearchParams();
+                params.append('mac', mac);
+                params.append('hostname', hostname);
+                const r = await fetch('/api/lan/hostname', { method: 'POST', body: params });
+                const result = await r.json();
+                
+                if (result.success) {
+                    if (hostname) {
+                        customHostnames[mac] = hostname;
+                    } else {
+                        delete customHostnames[mac];
+                    }
+                    renderLan();
+                    showToast('主机名已保存');
+                    closeHostnameModal();
+                } else {
+                    showToast(result.error || '保存失败', 'error');
+                }
+            } catch(e) {
+                showToast('保存失败', 'error');
+            }
+        };
+        
+        const resetHostname = async () => {
+            const mac = document.getElementById('editingMac').value;
+            
+            try {
+                const params = new URLSearchParams();
+                params.append('mac', mac);
+                const r = await fetch('/api/lan/hostname/delete', { method: 'POST', body: params });
+                const result = await r.json();
+                
+                if (result.success) {
+                    delete customHostnames[mac];
+                    renderLan();
+                    showToast('已重置为默认主机名');
+                    closeHostnameModal();
+                } else {
+                    showToast(result.error || '重置失败', 'error');
+                }
+            } catch(e) {
+                showToast('重置失败', 'error');
+            }
+        };
+        
+        const scanLan = async () => { 
+            try { 
+                const r = await fetch('/api/lan/scan', {method:'POST'}); 
+                lanData = await r.json();
+                await loadHostnames();
+                renderLan(); 
+                showToast('扫描完成，发现 ' + lanData.length + ' 个设备'); 
+            } catch(e){ 
+                showToast('扫描失败', 'error'); 
+            } 
+        };
+        
+        const addIpFromLan = (ip, name) => { 
+            if (ip === '-') return;
+            window.location.href = 'ip.html?ip=' + encodeURIComponent(ip) + '&desc=' + encodeURIComponent(name);
+        };
+        
+        const addMacFromLan = (mac, name, ip) => { 
+            window.location.href = 'mac.html?mac=' + encodeURIComponent(mac) + '&desc=' + encodeURIComponent(name) + '&ipv4=' + encodeURIComponent(ip);
+        };
+        
+        // 初始化
+        loadLan();
+    </script>
+</body>
+</html>

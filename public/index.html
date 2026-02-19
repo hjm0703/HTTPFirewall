@@ -4,98 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WFP Firewall Manager</title>
+    <link rel="stylesheet" href="style.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        /* 隐藏滚动条 */
-        ::-webkit-scrollbar { display: none; }
-        html { scrollbar-width: none; -ms-overflow-style: none; }
-        body { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* 主题变量 */
-        :root {
-            --bg-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            --text-primary: #fff;
-            --text-secondary: rgba(255, 255, 255, 0.7);
-            --text-muted: rgba(255, 255, 255, 0.5);
-            --text-faint: rgba(255, 255, 255, 0.3);
-            --surface: rgba(255, 255, 255, 0.03);
-            --surface-hover: rgba(255, 255, 255, 0.08);
-            --surface-active: rgba(255, 255, 255, 0.1);
-            --border: rgba(255, 255, 255, 0.1);
-            --border-light: rgba(255, 255, 255, 0.05);
-            --border-hover: rgba(255, 255, 255, 0.15);
-            --accent-start: #00d4ff;
-            --accent-end: #7c3aed;
-            --accent-gradient: linear-gradient(135deg, #7c3aed, #00d4ff);
-            --success: #22c55e;
-            --danger: #ef4444;
-            --warning: #eab308;
-            --info: #3b82f6;
-            --purple: #a855f7;
-            --orange: #f97316;
-        }
-        
-        [data-theme="light"] {
-            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
-            --text-primary: #1e293b;
-            --text-secondary: rgba(30, 41, 59, 0.8);
-            --text-muted: rgba(30, 41, 59, 0.6);
-            --text-faint: rgba(30, 41, 59, 0.4);
-            --surface: rgba(0, 0, 0, 0.02);
-            --surface-hover: rgba(0, 0, 0, 0.05);
-            --surface-active: rgba(0, 0, 0, 0.08);
-            --border: rgba(0, 0, 0, 0.1);
-            --border-light: rgba(0, 0, 0, 0.05);
-            --border-hover: rgba(0, 0, 0, 0.2);
-        }
-        
-        /* 主题切换按钮 */
-        .theme-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: 2px solid var(--border);
-            background: var(--surface);
-            backdrop-filter: blur(10px);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            transition: all 0.3s ease;
-        }
-        
-        .theme-toggle:hover {
-            transform: scale(1.1);
-            border-color: var(--accent-start);
-            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
-        }
-        
-        /* 粒子背景容器 */
-        #particles-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            pointer-events: none;
-        }
-        
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif; 
-            background: var(--bg-gradient);
-            min-height: 100vh; 
-            color: var(--text-primary);
-            overflow-x: hidden;
-        }
-        
-        /* 英雄区域 - 首屏 */
+        /* 首页专用样式 */
         .hero-section {
             min-height: 100vh;
             display: flex;
@@ -153,6 +64,11 @@
             100% { filter: hue-rotate(360deg); }
         }
         
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
         /* 滚动提示 */
         .scroll-indicator {
             position: absolute;
@@ -187,485 +103,144 @@
             50% { transform: rotate(45deg) translate(5px, 5px); opacity: 0.5; }
         }
         
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
         @keyframes bounce {
             0%, 100% { transform: translateX(-50%) translateY(0); }
             50% { transform: translateX(-50%) translateY(10px); }
         }
         
-        /* 内容区域 */
-        .content-section {
-            opacity: 0;
-            transform: translateY(50px);
-            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-            pointer-events: none;
+        /* 白色主题适配 */
+        [data-theme="light"] .status-indicator {
+            background: rgba(255, 255, 255, 0.8);
+            border-color: rgba(0, 0, 0, 0.1);
         }
         
-        .content-section.visible {
-            opacity: 1;
-            transform: translateY(0);
-            pointer-events: auto;
+        [data-theme="light"] .feature-card {
+            background: rgba(255, 255, 255, 0.8);
+            border-color: rgba(0, 0, 0, 0.1);
         }
         
-        .container { 
-            max-width: 1100px; 
-            margin: 0 auto; 
-            padding: 20px; 
+        [data-theme="light"] .feature-card:hover {
+            border-color: #0891b2;
+            box-shadow: 0 20px 60px rgba(0, 150, 200, 0.15);
         }
         
-        header { 
-            text-align: center; 
-            padding: 30px 0; 
-            margin-bottom: 20px; 
+        [data-theme="light"] .feature-icon {
+            background: rgba(0, 0, 0, 0.05);
         }
         
-        header h1 { 
-            font-size: 28px; 
+        [data-theme="light"] .features-section h2 {
+            background: linear-gradient(135deg, #0891b2, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* 功能卡片区域 */
+        .features-section {
+            min-height: 100vh;
+            padding: 80px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .features-section h2 {
+            font-size: 2rem;
+            margin-bottom: 40px;
             background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-bottom: 8px; 
-            font-weight: 600; 
         }
         
-        header p { 
-            color: var(--text-muted); 
-            font-size: 14px; 
+        /* 功能卡片网格 */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 0 20px;
+            max-width: 1200px;
+            width: 100%;
         }
         
-        .status-bar { 
-            display: flex; 
-            justify-content: center; 
-            gap: 15px; 
-            margin: 20px 0; 
-            padding: 20px; 
+        .feature-card {
             background: var(--surface);
-            backdrop-filter: blur(10px);
-            border-radius: 16px; 
-            flex-wrap: wrap; 
-            border: 1px solid var(--border);
-        }
-        
-        .status-item { 
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid var(--border-light);
+            text-decoration: none;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             text-align: center;
-            padding: 15px 25px;
-            background: var(--surface);
-            border-radius: 12px;
-            transition: all 0.3s ease;
-            min-width: 100px;
         }
         
-        .status-item:hover {
-            transform: translateY(-5px) scale(1.05);
+        .feature-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            border-color: var(--accent-start);
+            box-shadow: 0 20px 60px rgba(0, 212, 255, 0.2);
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
             background: var(--surface-active);
-            box-shadow: 0 10px 40px rgba(0, 212, 255, 0.2);
         }
         
-        .status-item .value { 
-            font-size: 28px; 
-            font-weight: 700; 
-            background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        .feature-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 10px;
         }
         
-        .status-item .label { 
-            font-size: 12px; 
-            color: var(--text-muted); 
-            margin-top: 5px; 
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .feature-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.6;
         }
         
-        .tabs { 
-            display: flex; 
-            gap: 8px; 
-            margin-bottom: 20px; 
+        /* 状态指示器 */
+        .status-indicators {
+            display: flex;
+            gap: 30px;
+            margin-top: 40px;
             flex-wrap: wrap;
             justify-content: center;
         }
         
-        .tab { 
-            padding: 12px 20px; 
+        .status-indicator {
+            text-align: center;
+            padding: 20px 30px;
             background: var(--surface);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border);
-            border-radius: 12px; 
-            color: var(--text-secondary); 
-            cursor: pointer; 
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-            font-size: 13px;
-            font-weight: 500;
-        }
-        
-        .tab:hover { 
-            background: var(--surface-active);
-            transform: translateY(-3px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-        
-        .tab.active { 
-            background: var(--accent-gradient);
-            color: #fff; 
-            border-color: transparent;
-            box-shadow: 0 10px 40px rgba(124, 58, 237, 0.4);
-        }
-        
-        .panel { 
-            background: var(--surface);
-            backdrop-filter: blur(20px);
-            border-radius: 20px; 
-            padding: 25px; 
-            margin-bottom: 20px; 
+            border-radius: 16px;
             border: 1px solid var(--border-light);
-            display: none;
-            transition: all 0.3s ease;
+            min-width: 100px;
         }
         
-        .panel:hover {
-            border-color: var(--border-hover);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        .status-value {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
-        .panel.active { display: block; }
-        
-        .panel h2 { 
-            font-size: 16px; 
-            margin-bottom: 18px; 
-            color: var(--text-primary); 
-            display: flex; 
-            align-items: center; 
-            gap: 10px; 
-            font-weight: 500; 
-        }
-        
-        .panel h2::before { 
-            content: ''; 
-            width: 4px; 
-            height: 20px; 
-            background: linear-gradient(180deg, var(--accent-start), var(--accent-end));
-            border-radius: 2px; 
-        }
-        
-        .cve-panel { border-color: rgba(239, 68, 68, 0.3); }
-        .cve-panel h2::before { background: linear-gradient(180deg, #ef4444, #f97316); }
-        
-        .mac-panel { border-color: rgba(168, 85, 247, 0.3); }
-        .mac-panel h2::before { background: linear-gradient(180deg, #a855f7, #6366f1); }
-        
-        .ip-panel { border-color: rgba(34, 197, 94, 0.3); }
-        .ip-panel h2::before { background: linear-gradient(180deg, #22c55e, #10b981); }
-        
-        .log-panel { border-color: rgba(59, 130, 246, 0.3); }
-        .log-panel h2::before { background: linear-gradient(180deg, #3b82f6, #0ea5e9); }
-        
-        .cve-card { 
-            background: var(--surface);
-            border-radius: 12px; 
-            padding: 18px; 
-            margin-bottom: 15px; 
-            border: 1px solid var(--border-light);
-            border-left-width: 4px;
-            transition: all 0.3s ease;
-        }
-        
-        .cve-card:hover {
-            background: var(--surface-hover);
-            transform: translateX(5px);
-        }
-        
-        .cve-card.critical { border-left-color: var(--danger); }
-        .cve-card.high { border-left-color: var(--orange); }
-        .cve-card.medium { border-left-color: var(--warning); }
-        
-        .cve-header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: flex-start; 
-            margin-bottom: 12px; 
-        }
-        
-        .cve-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
-        .cve-id { font-size: 12px; color: var(--accent-start); font-family: Consolas, monospace; }
-        .cve-meta { display: flex; gap: 15px; margin-bottom: 10px; }
-        
-        .cve-cvss { 
-            padding: 4px 10px; 
-            border-radius: 6px; 
-            font-size: 11px; 
-            font-weight: 600; 
-        }
-        
-        .cve-cvss.critical { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
-        .cve-cvss.high { background: rgba(249, 115, 22, 0.2); color: var(--orange); }
-        .cve-cvss.medium { background: rgba(234, 179, 8, 0.2); color: var(--warning); }
-        
-        .cve-desc { font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px; }
-        .cve-protection { font-size: 11px; color: var(--success); }
-        
-        .toggle-switch { position: relative; width: 52px; height: 28px; }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        
-        .toggle-slider { 
-            position: absolute; 
-            cursor: pointer; 
-            inset: 0; 
-            background: var(--surface-active);
-            border-radius: 28px; 
-            transition: 0.3s; 
-        }
-        
-        .toggle-slider:before { 
-            position: absolute; 
-            content: ""; 
-            height: 20px; 
-            width: 20px; 
-            left: 4px; 
-            bottom: 4px; 
-            background: var(--text-secondary);
-            border-radius: 50%; 
-            transition: 0.3s; 
-        }
-        
-        .toggle-switch input:checked + .toggle-slider { 
-            background: linear-gradient(135deg, var(--success), #10b981);
-        }
-        
-        .toggle-switch input:checked + .toggle-slider:before { 
-            transform: translateX(24px);
-            background: #fff;
-        }
-        
-        .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-        .form-group { flex: 1; min-width: 150px; }
-        .form-group label { display: block; margin-bottom: 6px; color: var(--text-muted); font-size: 12px; }
-        
-        .form-group input { 
-            width: 100%; 
-            padding: 12px 16px; 
-            border: 1px solid var(--border);
-            border-radius: 10px; 
-            background: var(--surface);
-            color: var(--text-primary); 
-            font-size: 13px;
-            transition: all 0.3s ease;
-        }
-        
-        .form-group input:focus { 
-            outline: none; 
-            border-color: var(--accent-start);
-            background: var(--surface-hover);
-            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
-        }
-        
-        .form-group input::placeholder { color: var(--text-faint); }
-        
-        .btn { 
-            padding: 10px 20px; 
-            border: none; 
-            border-radius: 10px; 
-            font-size: 13px; 
-            font-weight: 500; 
-            cursor: pointer; 
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-        }
-        
-        .btn-primary { 
-            background: var(--accent-gradient);
-            color: #fff;
-        }
-        
-        .btn-primary:hover { 
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(124, 58, 237, 0.4);
-        }
-        
-        .btn-secondary { 
-            background: var(--surface-active);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-        }
-        
-        .btn-secondary:hover { 
-            background: var(--surface-hover);
-        }
-        
-        .btn-danger { 
-            background: rgba(239, 68, 68, 0.2);
-            color: var(--danger);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
-        
-        .btn-danger:hover { 
-            background: rgba(239, 68, 68, 0.3);
-        }
-        
-        .btn-success { 
-            background: rgba(34, 197, 94, 0.2);
-            color: var(--success);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-        }
-        
-        .btn-success:hover { 
-            background: rgba(34, 197, 94, 0.3);
-        }
-        
-        .btn-sm { padding: 6px 12px; font-size: 11px; }
-        
-        .device-list, .ip-list, .log-list, .mac-list { 
-            margin-top: 15px; 
-            max-height: 350px; 
-            overflow-y: auto;
-        }
-        
-        .device-list::-webkit-scrollbar,
-        .ip-list::-webkit-scrollbar,
-        .log-list::-webkit-scrollbar,
-        .mac-list::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        .device-list::-webkit-scrollbar-thumb,
-        .ip-list::-webkit-scrollbar-thumb,
-        .log-list::-webkit-scrollbar-thumb,
-        .mac-list::-webkit-scrollbar-thumb {
-            background: var(--text-faint);
-            border-radius: 3px;
-        }
-        
-        .device-item, .ip-item, .log-item, .mac-item { 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            padding: 14px 16px; 
-            background: var(--surface);
-            border-radius: 10px; 
-            margin-bottom: 8px; 
-            border: 1px solid var(--border-light);
-            transition: all 0.3s ease;
-        }
-        
-        .device-item:hover, .ip-item:hover, .log-item:hover, .mac-item:hover { 
-            background: var(--surface-hover);
-            transform: translateX(5px);
-            border-color: var(--border);
-        }
-        
-        .device-info, .mac-info { display: flex; align-items: center; gap: 15px; flex: 1; min-width: 0; }
-        .device-hostname { font-weight: 500; color: var(--text-primary); min-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .device-ip { font-family: Consolas, monospace; font-size: 13px; }
-        .device-ip.ipv4 { color: var(--accent-start); }
-        .device-ip.ipv6 { color: var(--success); font-size: 11px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
-        .device-mac, .mac-addr { font-family: Consolas, monospace; font-size: 12px; color: var(--purple); }
-        
-        .ip-type-badge { 
-            padding: 3px 8px; 
-            border-radius: 6px; 
-            font-size: 10px; 
-            font-weight: 600; 
-            text-transform: uppercase; 
-        }
-        
-        .ip-type-badge.ipv4 { background: rgba(0, 212, 255, 0.2); color: var(--accent-start); }
-        .ip-type-badge.ipv6 { background: rgba(34, 197, 94, 0.2); color: var(--success); }
-        .ip-address { font-family: Consolas, monospace; font-size: 14px; color: var(--success); font-weight: 600; }
-        .ip-description { color: var(--text-muted); font-size: 12px; }
-        
-        .log-info { flex: 1; min-width: 0; }
-        .log-time { font-size: 11px; color: var(--text-muted); margin-bottom: 5px; }
-        .log-detail { display: flex; gap: 15px; flex-wrap: wrap; font-size: 12px; }
-        .log-detail span { font-family: Consolas, monospace; }
-        .log-src { color: var(--danger); }
-        .log-dst { color: var(--accent-start); }
-        .log-proto { color: var(--success); }
-        
-        .empty-state { 
-            text-align: center; 
-            padding: 50px 20px; 
+        .status-label {
+            font-size: 11px;
             color: var(--text-muted);
-        }
-        
-        .empty-state .icon { font-size: 48px; margin-bottom: 15px; opacity: 0.5; }
-        
-        .toast { 
-            position: fixed; 
-            bottom: 25px; 
-            right: 25px; 
-            padding: 14px 24px; 
-            border-radius: 12px; 
-            color: #fff; 
-            font-weight: 500; 
-            opacity: 0; 
-            transform: translateY(20px) scale(0.9);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-        }
-        
-        .toast.show { opacity: 1; transform: translateY(0) scale(1); }
-        .toast.success { background: rgba(34, 197, 94, 0.9); box-shadow: 0 10px 40px rgba(34, 197, 94, 0.3); }
-        .toast.error { background: rgba(239, 68, 68, 0.9); box-shadow: 0 10px 40px rgba(239, 68, 68, 0.3); }
-        
-        .actions { display: flex; gap: 8px; }
-        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        
-        .search-box input { 
-            width: 100%; 
-            max-width: 320px; 
-            padding: 12px 16px 12px 40px; 
-            border: 1px solid var(--border);
-            border-radius: 10px; 
-            background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 14px center;
-            color: var(--text-primary); 
-            font-size: 13px;
-            transition: all 0.3s ease;
-        }
-        
-        .search-box input:focus {
-            outline: none;
-            border-color: var(--accent-start);
-            background-color: var(--surface-hover);
-        }
-        
-        .quick-actions { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
-        
-        /* 动画效果类 */
-        .animate-in {
-            animation: slideInUp 0.6s ease forwards;
-        }
-        
-        @keyframes slideInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        /* 延迟动画 */
-        .delay-1 { animation-delay: 0.1s; }
-        .delay-2 { animation-delay: 0.2s; }
-        .delay-3 { animation-delay: 0.3s; }
-        .delay-4 { animation-delay: 0.4s; }
-        
-        /* 响应式 */
-        @media (max-width: 768px) {
-            .hero-title { font-size: 2.5rem; }
-            .status-item { min-width: 80px; padding: 10px 15px; }
-            .status-item .value { font-size: 22px; }
-            .tabs { justify-content: flex-start; }
-            .tab { padding: 10px 14px; font-size: 12px; }
-            .form-row { flex-direction: column; }
-            .form-group { min-width: 100%; }
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
     </style>
 </head>
@@ -679,265 +254,75 @@
     <!-- 首屏英雄区域 -->
     <section class="hero-section">
         <div class="hero-icon">🔥</div>
-        <h1 class="hero-title">WFP Firewall Manager</h1>
-        <p class="hero-subtitle">IP 白名单 & MAC 白名单 & CVE 防护 & 拦截日志</p>
+        <h1 class="hero-title">WFP Firewall</h1>
+        <p class="hero-subtitle">强大的 Windows 防火墙管理工具</p>
+        
+        <!-- 状态指示器 -->
+        <div class="status-indicators">
+            <div class="status-indicator">
+                <div class="status-value" id="ipWhitelistCount">0</div>
+                <div class="status-label">IP白名单</div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-value" id="macCount">0</div>
+                <div class="status-label">MAC白名单</div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-value" id="portCount">0</div>
+                <div class="status-label">开放端口</div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-value" id="cveCount">0</div>
+                <div class="status-label">CVE防护</div>
+            </div>
+        </div>
+        
+        <!-- 滚动提示 -->
         <div class="scroll-indicator">
             <span>向下滚动查看更多</span>
             <div class="scroll-arrow"></div>
         </div>
     </section>
     
-    <!-- 内容区域 -->
-    <section class="content-section">
-        <div class="container">
-            <header>
-                <h1>🔥 WFP Firewall Manager</h1>
-                <p>强大的 Windows 防火墙管理工具</p>
-            </header>
+    <!-- 功能卡片区域 -->
+    <section class="features-section">
+        <h2>功能模块</h2>
+        <div class="feature-grid">
+            <a href="ip.html" class="feature-card">
+                <div class="feature-icon">✅</div>
+                <div class="feature-title">IP 白名单</div>
+                <div class="feature-desc">管理 IP 地址白名单，控制入站访问权限</div>
+            </a>
             
-            <div class="status-bar">
-                <div class="status-item">
-                    <div class="value" id="ipWhitelistCount">0</div>
-                    <div class="label">IP白名单</div>
-                </div>
-                <div class="status-item">
-                    <div class="value" id="macCount">0</div>
-                    <div class="label">MAC白名单</div>
-                </div>
-                <div class="status-item">
-                    <div class="value" id="logCount">0</div>
-                    <div class="label">拦截日志</div>
-                </div>
-                <div class="status-item">
-                    <div class="value" id="cveCount">0</div>
-                    <div class="label">CVE防护</div>
-                </div>
-            </div>
+            <a href="mac.html" class="feature-card">
+                <div class="feature-icon">🔗</div>
+                <div class="feature-title">MAC 白名单</div>
+                <div class="feature-desc">基于 MAC 地址过滤，防止 IP 伪造攻击</div>
+            </a>
             
-            <div class="tabs">
-                <div class="tab active" onclick="showTab('ip')">✅ IP白名单</div>
-                <div class="tab" onclick="showTab('mac')">🔗 MAC白名单</div>
-                <div class="tab" onclick="showTab('lan')">🌐 局域网</div>
-                <div class="tab" onclick="showTab('logs')">📋 拦截日志</div>
-                <div class="tab" onclick="showTab('cve')">🛡️ CVE防护</div>
-            </div>
-
-            <!-- IP白名单 -->
-            <div id="tab-ip" class="panel ip-panel active">
-                <h2>IP 地址白名单</h2>
-                <div class="cve-card medium">
-                    <div class="cve-title">⚠️ IP 白名单防护</div>
-                    <div class="cve-desc">启用后，只有白名单中的 IP 地址才能与本机建立入站连接。未在白名单中的 IP 将被拒绝，有效防止未授权访问。</div>
-                </div>
-                <div class="cve-card" style="display:flex;justify-content:space-between;align-items:center">
-                    <div><strong>IP 过滤</strong><br><small style="color:rgba(255,255,255,0.5)" id="ipFilterDesc">未启用</small></div>
-                    <label class="toggle-switch"><input type="checkbox" id="ipToggle" onchange="toggleIpFilter()"><span class="toggle-slider"></span></label>
-                </div>
-                
-                <h2 style="margin-top:25px">添加 IP 地址</h2>
-                <form id="addForm">
-                    <div class="form-row">
-                        <div class="form-group"><label>IP地址</label><input type="text" id="ipAddr" placeholder="192.168.1.1 或 2001:db8::1"></div>
-                        <div class="form-group"><label>描述</label><input type="text" id="ipDesc" placeholder="备注"></div>
-                    </div>
-                    <button type="submit" class="btn btn-primary">添加</button>
-                </form>
-                <div class="header-actions" style="margin-top:20px">
-                    <h2>白名单列表</h2>
-                    <div class="actions">
-                        <button class="btn btn-secondary btn-sm" onclick="loadIps()">刷新</button>
-                        <button class="btn btn-danger btn-sm" onclick="clearAllIps()">清空</button>
-                    </div>
-                </div>
-                <div class="search-box"><input type="text" id="search" placeholder="搜索..." oninput="filterIps()"></div>
-                <div class="ip-list" id="ipList"></div>
-            </div>
-
-            <!-- MAC白名单 -->
-            <div id="tab-mac" class="panel mac-panel">
-                <h2>MAC 地址白名单</h2>
-                <div class="cve-card medium">
-                    <div class="cve-title">⚠️ MAC 绑定防护</div>
-                    <div class="cve-desc">启用后，只有白名单中的 MAC 地址才能与本机通信。未在白名单中的设备将被拒绝入站连接，有效防止 IP 伪造攻击。</div>
-                </div>
-                <div class="cve-card" style="display:flex;justify-content:space-between;align-items:center">
-                    <div><strong>MAC 过滤</strong><br><small style="color:rgba(255,255,255,0.5)" id="macFilterDesc">未启用</small></div>
-                    <label class="toggle-switch"><input type="checkbox" id="macToggle" onchange="toggleMacFilter()"><span class="toggle-slider"></span></label>
-                </div>
-                
-                <h2 style="margin-top:25px">添加 MAC 地址</h2>
-                <form id="addMacForm">
-                    <div class="form-row">
-                        <div class="form-group"><label>MAC地址</label><input type="text" id="macAddr" placeholder="AA:BB:CC:DD:EE:FF"></div>
-                        <div class="form-group"><label>描述</label><input type="text" id="macDescInput" placeholder="设备名称"></div>
-                        <div class="form-group" style="flex:0.5"><label>关联IP</label><input type="text" id="macIpv4" placeholder="可选"></div>
-                    </div>
-                    <button type="submit" class="btn btn-primary">添加</button>
-                </form>
-                <div class="header-actions" style="margin-top:20px">
-                    <h2>白名单列表</h2>
-                    <div class="actions">
-                        <button class="btn btn-secondary btn-sm" onclick="loadMacs()">刷新</button>
-                        <button class="btn btn-danger btn-sm" onclick="clearMacs()">清空</button>
-                    </div>
-                </div>
-                <div class="quick-actions">
-                    <button class="btn btn-success btn-sm" onclick="addAllLanToMac()">从局域网扫描添加所有设备</button>
-                </div>
-                <div class="mac-list" id="macList"></div>
-            </div>
-
-            <!-- 局域网 -->
-            <div id="tab-lan" class="panel">
-                <div class="header-actions">
-                    <h2>局域网设备</h2>
-                    <button class="btn btn-primary btn-sm" onclick="scanLan()">扫描</button>
-                </div>
-                <div class="device-list" id="deviceList"></div>
-            </div>
-
-            <!-- 拦截日志 -->
-            <div id="tab-logs" class="panel log-panel">
-                <div class="header-actions">
-                    <h2>拦截日志</h2>
-                    <div class="actions">
-                        <button class="btn btn-secondary btn-sm" onclick="loadLogs()">刷新</button>
-                        <button class="btn btn-danger btn-sm" onclick="clearLogs()">清空</button>
-                    </div>
-                </div>
-                <div class="log-list" id="logList"></div>
-            </div>
-
-            <!-- CVE防护 -->
-            <div id="tab-cve" class="panel cve-panel">
-                <h2>CVE 漏洞防护</h2>
-                
-                <!-- CVE-2024-38063 -->
-                <div class="cve-card critical">
-                    <div class="cve-header">
-                        <div>
-                            <div class="cve-title">Windows TCP/IP IPv6 远程代码执行</div>
-                            <div class="cve-id">CVE-2024-38063</div>
-                        </div>
-                        <label class="toggle-switch"><input type="checkbox" id="cve2024_38063" onchange="toggleCve('cve2024_38063')"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 9.8</span><span style="color:rgba(255,255,255,0.5);font-size:11px">2024年7月</span></div>
-                    <div class="cve-desc">Windows TCP/IP 协议栈存在整数下溢漏洞，攻击者可通过发送特制 IPv6 数据包远程执行代码，无需用户交互。</div>
-                    <div class="cve-protection">🛡️ 防护方式：阻断所有 IPv6 流量</div>
-                </div>
-                
-                <!-- CVE-2023-44487 -->
-                <div class="cve-card high">
-                    <div class="cve-header">
-                        <div>
-                            <div class="cve-title">HTTP/2 Rapid Reset DoS 攻击</div>
-                            <div class="cve-id">CVE-2023-44487</div>
-                        </div>
-                        <label class="toggle-switch"><input type="checkbox" id="cve2023_44487" onchange="toggleCve('cve2023_44487')"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="cve-meta"><span class="cve-cvss high">CVSS 7.5</span><span style="color:rgba(255,255,255,0.5);font-size:11px">2023年10月</span></div>
-                    <div class="cve-desc">HTTP/2 协议实现存在漏洞，攻击者可发送大量 RST_STREAM 帧导致服务器资源耗尽，造成拒绝服务攻击。</div>
-                    <div class="cve-protection">🛡️ 防护方式：限制异常 HTTP/2 流量（开发中）</div>
-                </div>
-                
-                <!-- CVE-2023-38545 -->
-                <div class="cve-card critical">
-                    <div class="cve-header">
-                        <div>
-                            <div class="cve-title">curl SOCKS5 堆缓冲区溢出</div>
-                            <div class="cve-id">CVE-2023-38545</div>
-                        </div>
-                        <label class="toggle-switch"><input type="checkbox" id="cve2023_38545" onchange="toggleCve('cve2023_38545')"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 9.8</span><span style="color:rgba(255,255,255,0.5);font-size:11px">2023年10月</span></div>
-                    <div class="cve-desc">curl 库在处理 SOCKS5 代理时存在堆缓冲区溢出漏洞，当主机名超过 255 字节时可导致远程代码执行。</div>
-                    <div class="cve-protection">🛡️ 防护方式：阻断 SOCKS5 代理流量（端口 1080）</div>
-                </div>
-                
-                <!-- CVE-2017-0144 EternalBlue -->
-                <div class="cve-card critical">
-                    <div class="cve-header">
-                        <div>
-                            <div class="cve-title">EternalBlue 永恒之蓝</div>
-                            <div class="cve-id">CVE-2017-0144</div>
-                        </div>
-                        <label class="toggle-switch"><input type="checkbox" id="cve2017_0144" onchange="toggleCve('cve2017_0144')"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 8.8</span><span style="color:rgba(255,255,255,0.5);font-size:11px">2017年3月</span></div>
-                    <div class="cve-desc">Windows SMBv1 服务器存在远程代码执行漏洞，攻击者可发送特制数据包执行任意代码。WannaCry 勒索病毒利用此漏洞传播。</div>
-                    <div class="cve-protection">🛡️ 防护方式：阻断 SMB 端口 445 入站流量</div>
-                </div>
-                
-                <!-- CVE-2024-45177 -->
-                <div class="cve-card critical">
-                    <div class="cve-header">
-                        <div>
-                            <div class="cve-title">Windows RDP 远程代码执行</div>
-                            <div class="cve-id">CVE-2024-45177</div>
-                        </div>
-                        <label class="toggle-switch"><input type="checkbox" id="cve2024_45177" onchange="toggleCve('cve2024_45177')"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 9.8</span><span style="color:rgba(255,255,255,0.5);font-size:11px">2024年9月</span></div>
-                    <div class="cve-desc">Windows 远程桌面协议存在远程代码执行漏洞，攻击者可通过 RDP 连接执行任意代码。</div>
-                    <div class="cve-protection">🛡️ 防护方式：阻断 RDP 端口 3389 入站流量</div>
-                </div>
-                
-                <!-- CVE-2023-23397 -->
-                <div class="cve-card high">
-                    <div class="cve-header">
-                        <div>
-                            <div class="cve-title">Microsoft Outlook 权限提升</div>
-                            <div class="cve-id">CVE-2023-23397</div>
-                        </div>
-                        <label class="toggle-switch"><input type="checkbox" id="cve2023_23397" onchange="toggleCve('cve2023_23397')"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="cve-meta"><span class="cve-cvss high">CVSS 9.1</span><span style="color:rgba(255,255,255,0.5);font-size:11px">2023年3月</span></div>
-                    <div class="cve-desc">Microsoft Outlook 存在权限提升漏洞，攻击者可利用特制邮件触发 NTLM 认证，窃取用户凭据。</div>
-                    <div class="cve-protection">🛡️ 防护方式：阻断可疑 UNC 路径流量</div>
-                </div>
-                
-                <!-- CVE-2021-34527 -->
-                <div class="cve-card critical">
-                    <div class="cve-header">
-                        <div>
-                            <div class="cve-title">PrintNightmare 打印机漏洞</div>
-                            <div class="cve-id">CVE-2021-34527</div>
-                        </div>
-                        <label class="toggle-switch"><input type="checkbox" id="cve2021_34527" onchange="toggleCve('cve2021_34527')"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 9.0</span><span style="color:rgba(255,255,255,0.5);font-size:11px">2021年6月</span></div>
-                    <div class="cve-desc">Windows 打印后台处理程序存在远程代码执行漏洞，攻击者可通过打印机服务执行任意代码。</div>
-                    <div class="cve-protection">🛡️ 防护方式：阻断打印机端口 9100 入站流量</div>
-                </div>
-                
-                <!-- CVE-2024-21745 -->
-                <div class="cve-card critical">
-                    <div class="cve-header">
-                        <div>
-                            <div class="cve-title">Windows DNS Server RCE</div>
-                            <div class="cve-id">CVE-2024-21745</div>
-                        </div>
-                        <label class="toggle-switch"><input type="checkbox" id="cve2024_21745" onchange="toggleCve('cve2024_21745')"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 9.8</span><span style="color:rgba(255,255,255,0.5);font-size:11px">2024年2月</span></div>
-                    <div class="cve-desc">Windows DNS 服务器存在远程代码执行漏洞，攻击者可通过特制 DNS 请求执行任意代码。</div>
-                    <div class="cve-protection">🛡️ 防护方式：阻断异常 DNS 流量</div>
-                </div>
-                
-                <!-- CVE-2021-44228 -->
-                <div class="cve-card critical">
-                    <div class="cve-header">
-                        <div>
-                            <div class="cve-title">Log4j 远程代码执行 (Log4Shell)</div>
-                            <div class="cve-id">CVE-2021-44228</div>
-                        </div>
-                        <label class="toggle-switch"><input type="checkbox" id="cve2021_44228" onchange="toggleCve('cve2021_44228')"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="cve-meta"><span class="cve-cvss critical">CVSS 10.0</span><span style="color:rgba(255,255,255,0.5);font-size:11px">2021年12月</span></div>
-                    <div class="cve-desc">Apache Log4j 存在严重的远程代码执行漏洞，攻击者可通过 JNDI 注入执行任意代码。影响广泛，被称为 Log4Shell。</div>
-                    <div class="cve-protection">🛡️ 防护方式：检测并阻断 JNDI 注入特征流量</div>
-                </div>
-            </div>
+            <a href="ports.html" class="feature-card">
+                <div class="feature-icon">🔌</div>
+                <div class="feature-title">端口管理</div>
+                <div class="feature-desc">查看端口状态，清理异常网络连接</div>
+            </a>
+            
+            <a href="lan.html" class="feature-card">
+                <div class="feature-icon">🌐</div>
+                <div class="feature-title">局域网扫描</div>
+                <div class="feature-desc">扫描局域网设备，发现网络中的设备</div>
+            </a>
+            
+            <a href="logs.html" class="feature-card">
+                <div class="feature-icon">📋</div>
+                <div class="feature-title">拦截日志</div>
+                <div class="feature-desc">查看被拦截的网络连接记录</div>
+            </a>
+            
+            <a href="cve.html" class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <div class="feature-title">CVE 防护</div>
+                <div class="feature-desc">针对已知漏洞的主动防护措施</div>
+            </a>
         </div>
     </section>
     
@@ -945,7 +330,6 @@
 
     <script>
         const $ = id => document.getElementById(id);
-        let ipData = [], lanData = [], logData = [], macData = [], cveStatus = {};
         
         // ========== 主题切换 ==========
         function toggleTheme() {
@@ -999,14 +383,13 @@
                 this.speedX = (Math.random() - 0.5) * 0.5;
                 this.speedY = (Math.random() - 0.5) * 0.5;
                 this.opacity = Math.random() * 0.5 + 0.2;
-                this.hue = Math.random() * 60 + 200; // 蓝紫色调
+                this.hue = Math.random() * 60 + 200;
             }
             
             update() {
                 this.x += this.speedX;
                 this.y += this.speedY;
                 
-                // 鼠标交互
                 const dx = mouseX - this.x;
                 const dy = mouseY - this.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
@@ -1015,7 +398,6 @@
                     this.y -= dy * 0.02;
                 }
                 
-                // 边界检测
                 if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
                     this.reset();
                 }
@@ -1058,311 +440,47 @@
         
         function animateParticles() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            particles.forEach(p => {
-                p.update();
-                p.draw();
-            });
-            
+            particles.forEach(p => { p.update(); p.draw(); });
             drawConnections();
             requestAnimationFrame(animateParticles);
         }
         
-        // 初始化粒子
         resizeCanvas();
         initParticles();
         animateParticles();
         
-        window.addEventListener('resize', () => {
-            resizeCanvas();
-            initParticles();
-        });
+        window.addEventListener('resize', () => { resizeCanvas(); initParticles(); });
+        document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
         
-        document.addEventListener('mousemove', e => {
-            mouseX = e.clientX;
-            mouseY = e.clientY;
-        });
-        
-        // ========== 滚动显示效果 ==========
-        const contentSection = document.querySelector('.content-section');
-        const heroSection = document.querySelector('.hero-section');
-        
-        function checkScroll() {
-            const scrollY = window.scrollY;
-            const triggerPoint = window.innerHeight * 0.3;
-            
-            if (scrollY > triggerPoint) {
-                contentSection.classList.add('visible');
-            }
-        }
-        
-        window.addEventListener('scroll', checkScroll);
-        checkScroll();
-        
-        // ========== 原有功能代码 ==========
-        const toast = (m, t = 'success') => { 
-            const e = $('toast'); 
-            e.textContent = m; 
-            e.className = 'toast ' + t + ' show'; 
-            setTimeout(() => e.classList.remove('show'), 2500); 
-        };
-        
-        const showTab = t => { 
-            document.querySelectorAll('.tab').forEach(x => x.classList.remove('active')); 
-            document.querySelectorAll('.panel').forEach(x => x.classList.remove('active')); 
-            event.target.classList.add('active'); 
-            $('tab-' + t).classList.add('active'); 
-        };
-        
+        // ========== 加载状态 ==========
         const loadStatus = async () => { 
             try { 
                 const r = await fetch('/api/status'); 
                 const d = await r.json(); 
                 $('ipWhitelistCount').textContent = d.ipWhitelistCount || 0;
-                $('logCount').textContent = d.logCount || 0;
                 $('macCount').textContent = d.macWhitelistCount || 0;
+                
+                // 获取开放端口数
+                try {
+                    const portR = await fetch('/api/ports/listening');
+                    const ports = await portR.json();
+                    $('portCount').textContent = ports.length || 0;
+                } catch(e) {
+                    $('portCount').textContent = '-';
+                }
+                
                 if (d.cve) {
-                    cveStatus = d.cve;
                     let activeCve = 0;
-                    for (const [k, v] of Object.entries(cveStatus)) {
-                        const el = $(k);
-                        if (el) el.checked = v;
+                    for (const v of Object.values(d.cve)) {
                         if (v) activeCve++;
                     }
                     $('cveCount').textContent = activeCve;
                 }
-                $('ipToggle').checked = d.ipFilterEnabled;
-                $('ipFilterDesc').textContent = d.ipFilterEnabled ? '已启用' : '未启用';
-                $('macToggle').checked = d.macFilterEnabled;
-                $('macFilterDesc').textContent = d.macFilterEnabled ? '已启用' : '未启用';
             } catch(e){} 
         };
         
-        const loadIps = async () => { try { const r = await fetch('/api/ips'); ipData = await r.json(); renderIps(); loadStatus(); } catch(e){ toast('加载失败', 'error'); } };
-        const loadLan = async () => { try { const r = await fetch('/api/lan'); lanData = await r.json(); renderLan(); } catch(e){} };
-        const loadLogs = async () => { try { const r = await fetch('/api/logs'); logData = await r.json(); renderLogs(); loadStatus(); } catch(e){ toast('加载日志失败', 'error'); } };
-        const loadMacs = async () => { try { const r = await fetch('/api/mac'); macData = await r.json(); renderMacs(); loadStatus(); } catch(e){ toast('加载MAC失败', 'error'); } };
-        
-        const renderIps = (f = '') => { 
-            const el = $('ipList'); 
-            const d = ipData.filter(i => i.ip.includes(f) || i.description.includes(f)); 
-            if (!d.length) { 
-                el.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>暂无IP白名单</p></div>'; 
-                return; 
-            } 
-            el.innerHTML = d.map(i => '<div class="ip-item"><div class="device-info"><span class="ip-type-badge ' + (i.ip_type === 'IPv6' ? 'ipv6' : 'ipv4') + '">' + (i.ip_type || 'IPv4') + '</span><span class="ip-address">' + i.ip + '</span><span class="ip-description">' + (i.description || '-') + '</span></div><button class="btn btn-danger btn-sm" onclick="removeIp(\'' + i.ip + '\')">移除</button></div>').join(''); 
-        };
-        
-        const filterIps = () => renderIps($('search').value);
-        
-        const renderMacs = () => { 
-            const el = $('macList'); 
-            if (!macData.length) { 
-                el.innerHTML = '<div class="empty-state"><div class="icon">🔗</div><p>暂无MAC白名单</p></div>'; 
-                return; 
-            } 
-            el.innerHTML = macData.map(m => '<div class="mac-item"><div class="mac-info"><span class="mac-addr">' + m.mac + '</span><span style="color:rgba(255,255,255,0.5)">' + (m.description || '-') + '</span><span class="device-ip ipv4">' + (m.ipv4 || '-') + '</span></div><button class="btn btn-danger btn-sm" onclick="removeMac(\'' + m.mac + '\')">移除</button></div>').join(''); 
-        };
-        
-        const renderLan = () => { 
-            const el = $('deviceList'); 
-            if (!lanData.length) { 
-                el.innerHTML = '<div class="empty-state"><div class="icon">🌐</div><p>点击扫描查看局域网设备</p></div>'; 
-                return; 
-            } 
-            el.innerHTML = lanData.map(d => '<div class="device-item"><div class="device-info"><span class="device-hostname">' + d.hostname + '</span><span class="device-ip ipv4">' + d.ipv4 + '</span><span class="mac-addr">' + d.mac + '</span></div><div class="actions"><button class="btn btn-success btn-sm" onclick="addIpFromLan(\'' + d.ipv4 + '\',\'' + d.hostname + '\')">加入IP白名单</button><button class="btn btn-success btn-sm" onclick="addMacFromLan(\'' + d.mac + '\',\'' + d.hostname + '\',\'' + d.ipv4 + '\')">加入MAC白名单</button></div></div>').join(''); 
-        };
-        
-        const renderLogs = () => { 
-            const el = $('logList'); 
-            if (!logData.length) { 
-                el.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>暂无拦截记录</p></div>'; 
-                return; 
-            } 
-            el.innerHTML = logData.map(l => '<div class="log-item"><div class="log-info"><div class="log-time">' + l.timestamp + ' | ' + l.direction + '</div><div class="log-detail"><span class="log-src">' + l.srcIp + (l.srcPort ? ':' + l.srcPort : '') + '</span> → <span class="log-dst">' + l.dstIp + (l.dstPort ? ':' + l.dstPort : '') + '</span> | <span class="log-proto">' + l.protocol + '</span></div></div></div>').join(''); 
-        };
-        
-        const scanLan = async () => { 
-            try { 
-                const r = await fetch('/api/lan/scan', {method:'POST'}); 
-                lanData = await r.json(); 
-                renderLan(); 
-                loadStatus(); 
-                toast('扫描完成，发现 ' + lanData.length + ' 个设备'); 
-            } catch(e){ 
-                toast('扫描失败', 'error'); 
-            } 
-        };
-        
-        const toggleCve = async (cveId) => { 
-            const el = $(cveId);
-            const on = el.checked;
-            try { 
-                const params = new URLSearchParams(); 
-                params.append('cve', cveId); 
-                params.append('enabled', on ? 'true' : 'false'); 
-                await fetch('/api/cve/toggle', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
-                toast(on ? '防护已开启' : '防护已关闭'); 
-                loadStatus();
-            } catch(e){ 
-                el.checked = !on; 
-                toast('操作失败', 'error'); 
-            } 
-        };
-        
-        const toggleIpFilter = async () => { 
-            const on = $('ipToggle').checked; 
-            try { 
-                const params = new URLSearchParams(); 
-                params.append('enabled', on ? 'true' : 'false'); 
-                await fetch('/api/ips/toggle', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
-                $('ipFilterDesc').textContent = on ? '已启用' : '未启用'; 
-                toast(on ? 'IP过滤已开启' : 'IP过滤已关闭'); 
-            } catch(e){ 
-                $('ipToggle').checked = !on; 
-            } 
-        };
-        
-        const toggleMacFilter = async () => { 
-            const on = $('macToggle').checked; 
-            try { 
-                const params = new URLSearchParams(); 
-                params.append('enabled', on ? 'true' : 'false'); 
-                await fetch('/api/mac/toggle', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
-                $('macFilterDesc').textContent = on ? '已启用' : '未启用'; 
-                toast(on ? 'MAC过滤已开启' : 'MAC过滤已关闭'); 
-            } catch(e){ 
-                $('macToggle').checked = !on; 
-            } 
-        };
-        
-        $('addForm').onsubmit = async e => { 
-            e.preventDefault(); 
-            const ip = $('ipAddr').value.trim(), desc = $('ipDesc').value.trim(); 
-            if (!ip) return; 
-            try { 
-                const params = new URLSearchParams(); 
-                params.append('ip', ip); 
-                params.append('description', desc); 
-                const r = await fetch('/api/ips', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
-                const d = await r.json(); 
-                if (d.success) { 
-                    toast('已添加到白名单'); 
-                    $('addForm').reset(); 
-                    loadIps(); 
-                } else toast(d.error, 'error'); 
-            } catch(e){ 
-                toast('失败', 'error'); 
-            } 
-        };
-        
-        $('addMacForm').onsubmit = async e => { 
-            e.preventDefault(); 
-            const mac = $('macAddr').value.trim(), desc = $('macDescInput').value.trim(), ipv4 = $('macIpv4').value.trim(); 
-            if (!mac) return; 
-            try { 
-                const params = new URLSearchParams(); 
-                params.append('mac', mac); 
-                params.append('description', desc); 
-                params.append('ipv4', ipv4); 
-                const r = await fetch('/api/mac', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
-                const d = await r.json(); 
-                if (d.success) { 
-                    toast('已添加'); 
-                    $('addMacForm').reset(); 
-                    loadMacs(); 
-                } else toast(d.error, 'error'); 
-            } catch(e){ 
-                toast('失败', 'error'); 
-            } 
-        };
-        
-        const removeIp = async ip => { 
-            if (!confirm('从白名单移除 ' + ip + '?')) return; 
-            try { 
-                const params = new URLSearchParams(); 
-                params.append('ip', ip); 
-                await fetch('/api/ips', {method:'DELETE', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
-                toast('已移除'); 
-                loadIps(); 
-            } catch(e){} 
-        };
-        
-        const removeMac = async mac => { 
-            if (!confirm('移除 ' + mac + '?')) return; 
-            try { 
-                const params = new URLSearchParams(); 
-                params.append('mac', mac); 
-                await fetch('/api/mac', {method:'DELETE', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
-                toast('已移除'); 
-                loadMacs(); 
-            } catch(e){} 
-        };
-        
-        const clearAllIps = async () => { 
-            if (!confirm('清空所有IP白名单?')) return; 
-            await fetch('/api/ips/all', {method:'DELETE'}); 
-            toast('已清空'); 
-            loadIps(); 
-        };
-        
-        const clearMacs = async () => { 
-            if (!confirm('清空所有MAC白名单?')) return; 
-            await fetch('/api/mac/all', {method:'DELETE'}); 
-            toast('已清空'); 
-            loadMacs(); 
-        };
-        
-        const clearLogs = async () => { 
-            if (!confirm('清空所有日志?')) return; 
-            await fetch('/api/logs', {method:'DELETE'}); 
-            toast('日志已清空'); 
-            loadLogs(); 
-        };
-        
-        const addIpFromLan = (ip, name) => { 
-            if (ip === '-') return; 
-            $('ipAddr').value = ip; 
-            $('ipDesc').value = name; 
-            showTab('ip'); 
-        };
-        
-        const addMacFromLan = (mac, name, ip) => { 
-            $('macAddr').value = mac; 
-            $('macDescInput').value = name; 
-            $('macIpv4').value = ip; 
-            showTab('mac'); 
-        };
-        
-        const addAllLanToMac = async () => { 
-            if (!lanData.length) { 
-                toast('请先扫描局域网', 'error'); 
-                return; 
-            }
-            let added = 0;
-            for (const d of lanData) {
-                if (d.mac && d.mac !== '-') {
-                    try { 
-                        const params = new URLSearchParams(); 
-                        params.append('mac', d.mac); 
-                        params.append('description', d.hostname); 
-                        params.append('ipv4', d.ipv4); 
-                        const r = await fetch('/api/mac', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
-                        if ((await r.json()).success) added++; 
-                    } catch(e){}
-                }
-            }
-            toast('已添加 ' + added + ' 个设备到白名单');
-            loadMacs();
-        };
-        
-        // 初始化加载
-        loadIps(); 
-        loadLan(); 
-        loadLogs(); 
-        loadMacs(); 
         loadStatus();
-        setInterval(() => { loadStatus(); loadLogs(); }, 5000);
+        setInterval(loadStatus, 5000);
     </script>
 </body>
 </html>

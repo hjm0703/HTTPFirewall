@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAC白名单 - WFP Firewall</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 主题切换按钮 -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">🌙</button>
+    
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">🔥 WFP Firewall</a>
+        <div class="navbar-nav">
+            <a href="ip.html" class="nav-link">✅ IP白名单</a>
+            <a href="mac.html" class="nav-link active">🔗 MAC白名单</a>
+            <a href="ports.html" class="nav-link">🔌 端口管理</a>
+            <a href="lan.html" class="nav-link">🌐 局域网</a>
+            <a href="logs.html" class="nav-link">📋 拦截日志</a>
+            <a href="cve.html" class="nav-link">🛡️ CVE防护</a>
+        </div>
+    </nav>
+    
+    <!-- 粒子背景 -->
+    <canvas id="particles-canvas"></canvas>
+    
+    <!-- 主内容 -->
+    <main class="main-content">
+        <div class="container">
+            <div class="panel mac-panel">
+                <h2>MAC 地址白名单</h2>
+                <div class="cve-card medium">
+                    <div class="cve-title">⚠️ MAC 绑定防护</div>
+                    <div class="cve-desc">启用后，只有白名单中的 MAC 地址才能与本机通信。未在白名单中的设备将被拒绝入站连接，有效防止 IP 伪造攻击。</div>
+                </div>
+                <div class="cve-card" style="display:flex;justify-content:space-between;align-items:center">
+                    <div><strong>MAC 过滤</strong><br><small style="color:var(--text-muted)" id="macFilterDesc">未启用</small></div>
+                    <label class="toggle-switch"><input type="checkbox" id="macToggle" onchange="toggleMacFilter()"><span class="toggle-slider"></span></label>
+                </div>
+                
+                <h2 style="margin-top:25px">添加 MAC 地址</h2>
+                <form id="addMacForm">
+                    <div class="form-row">
+                        <div class="form-group"><label>MAC地址</label><input type="text" id="macAddr" placeholder="AA:BB:CC:DD:EE:FF"></div>
+                        <div class="form-group"><label>描述</label><input type="text" id="macDescInput" placeholder="设备名称"></div>
+                        <div class="form-group" style="flex:0.5"><label>关联IP</label><input type="text" id="macIpv4" placeholder="可选"></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">添加</button>
+                </form>
+                
+                <div class="header-actions" style="margin-top:20px">
+                    <h2>白名单列表</h2>
+                    <div class="actions">
+                        <button class="btn btn-secondary btn-sm" onclick="loadMacs()">刷新</button>
+                        <button class="btn btn-danger btn-sm" onclick="clearMacs()">清空</button>
+                    </div>
+                </div>
+                <div class="quick-actions">
+                    <button class="btn btn-success btn-sm" onclick="addAllLanToMac()">从局域网扫描添加所有设备</button>
+                </div>
+                <div class="mac-list" id="macList"></div>
+            </div>
+        </div>
+    </main>
+    
+    <div class="toast" id="toast"></div>
+
+    <script src="common.js"></script>
+    <script>
+        let macData = [];
+        
+        const loadMacs = async () => { 
+            try { 
+                const r = await fetch('/api/mac'); 
+                macData = await r.json(); 
+                renderMacs(); 
+            } catch(e){ showToast('加载MAC失败', 'error'); } 
+        };
+        
+        const renderMacs = () => { 
+            const el = document.getElementById('macList'); 
+            if (!macData.length) { 
+                el.innerHTML = '<div class="empty-state"><div class="icon">🔗</div><p>暂无MAC白名单</p></div>'; 
+                return; 
+            } 
+            el.innerHTML = macData.map(m => '<div class="mac-item"><div class="mac-info"><span class="mac-addr">' + m.mac + '</span><span style="color:var(--text-muted)">' + (m.description || '-') + '</span><span class="device-ip ipv4">' + (m.ipv4 || '-') + '</span></div><button class="btn btn-danger btn-sm" onclick="removeMac(\'' + m.mac + '\')">移除</button></div>').join(''); 
+        };
+        
+        const toggleMacFilter = async () => { 
+            const on = document.getElementById('macToggle').checked; 
+            try { 
+                const params = new URLSearchParams(); 
+                params.append('enabled', on ? 'true' : 'false'); 
+                await fetch('/api/mac/toggle', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
+                document.getElementById('macFilterDesc').textContent = on ? '已启用' : '未启用'; 
+                showToast(on ? 'MAC过滤已开启' : 'MAC过滤已关闭'); 
+            } catch(e) { 
+                document.getElementById('macToggle').checked = !on; 
+            } 
+        };
+        
+        document.getElementById('addMacForm').onsubmit = async e => { 
+            e.preventDefault(); 
+            const mac = document.getElementById('macAddr').value.trim(), desc = document.getElementById('macDescInput').value.trim(), ipv4 = document.getElementById('macIpv4').value.trim(); 
+            if (!mac) return; 
+            try { 
+                const params = new URLSearchParams(); 
+                params.append('mac', mac); 
+                params.append('description', desc); 
+                params.append('ipv4', ipv4); 
+                const r = await fetch('/api/mac', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
+                const d = await r.json(); 
+                if (d.success) { 
+                    showToast('已添加'); 
+                    document.getElementById('addMacForm').reset(); 
+                    loadMacs(); 
+                } else showToast(d.error, 'error'); 
+            } catch(e){ 
+                showToast('失败', 'error'); 
+            } 
+        };
+        
+        const removeMac = async mac => { 
+            if (!confirm('移除 ' + mac + '?')) return; 
+            try { 
+                const params = new URLSearchParams(); 
+                params.append('mac', mac); 
+                await fetch('/api/mac', {method:'DELETE', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
+                showToast('已移除'); 
+                loadMacs(); 
+            } catch(e){} 
+        };
+        
+        const clearMacs = async () => { 
+            if (!confirm('清空所有MAC白名单?')) return; 
+            await fetch('/api/mac/all', {method:'DELETE'}); 
+            showToast('已清空'); 
+            loadMacs(); 
+        };
+        
+        const addAllLanToMac = async () => { 
+            try {
+                const r = await fetch('/api/lan');
+                const lanData = await r.json();
+                
+                if (!lanData.length) { 
+                    showToast('请先在局域网页面扫描', 'error'); 
+                    return; 
+                }
+                let added = 0;
+                for (const d of lanData) {
+                    if (d.mac && d.mac !== '-') {
+                        try { 
+                            const params = new URLSearchParams(); 
+                            params.append('mac', d.mac); 
+                            params.append('description', d.hostname); 
+                            params.append('ipv4', d.ipv4); 
+                            const r = await fetch('/api/mac', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}}); 
+                            if ((await r.json()).success) added++; 
+                        } catch(e){}
+                    }
+                }
+                showToast('已添加 ' + added + ' 个设备到白名单');
+                loadMacs();
+            } catch(e) {
+                showToast('操作失败', 'error');
+            }
+        };
+        
+        const loadStatus = async () => {
+            try {
+                const r = await fetch('/api/status');
+                const d = await r.json();
+                document.getElementById('macToggle').checked = d.macFilterEnabled;
+                document.getElementById('macFilterDesc').textContent = d.macFilterEnabled ? '已启用' : '未启用';
+            } catch(e){}
+        };
+        
+        // URL 参数处理
+        const handleUrlParams = () => {
+            const params = new URLSearchParams(window.location.search);
+            const mac = params.get('mac');
+            const desc = params.get('desc');
+            const ipv4 = params.get('ipv4');
+            if (mac) {
+                document.getElementById('macAddr').value = mac;
+                if (desc) document.getElementById('macDescInput').value = desc;
+                if (ipv4) document.getElementById('macIpv4').value = ipv4;
+            }
+        };
+        
+        // 初始化
+        loadMacs();
+        loadStatus();
+        handleUrlParams();
+    </script>
+</body>
+</html>

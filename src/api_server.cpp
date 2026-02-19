@@ -69,6 +69,21 @@ std::string blockLogsJson(const std::vector<BlockLogEntry>& logs) {
     return j.str();
 }
 
+std::string portsJson(const std::vector<PortEntry>& ports) {
+    std::ostringstream j; j << "[\n";
+    for (size_t i = 0; i < ports.size(); i++) {
+        const auto& p = ports[i];
+        j << "  {\"port\": " << p.port << ", \"protocol\": \"" << esc(p.protocol)
+          << "\", \"state\": \"" << esc(p.state) << "\", \"localAddress\": \"" << esc(p.localAddress)
+          << "\", \"remoteAddress\": \"" << esc(p.remoteAddress) << "\", \"remotePort\": " << p.remotePort
+          << ", \"pid\": " << p.pid << ", \"processName\": \"" << esc(p.processName) << "\"}";
+        if (i < ports.size() - 1) j << ",";
+        j << "\n";
+    }
+    j << "]";
+    return j.str();
+}
+
 std::string macWhitelistJson(const std::vector<MacWhitelistData>& entries) {
     std::ostringstream j; j << "[\n";
     for (size_t i = 0; i < entries.size(); i++) {
@@ -204,6 +219,46 @@ bool ApiServer::start(const std::string& host, int port) {
         res.set_content(lanDevicesJson(devices), "application/json");
     });
 
+    // MAC 主机名 API
+    impl_->server.Post("/api/lan/hostname", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string mac = req.get_param_value("mac");
+        std::string hostname = req.get_param_value("hostname");
+        if (mac.empty()) {
+            res.set_content("{\"success\": false, \"error\": \"MAC地址不能为空\"}", "application/json");
+            return;
+        }
+        if (ipStore_.setMacHostname(mac, hostname)) {
+            res.set_content("{\"success\": true}", "application/json");
+        } else {
+            res.set_content("{\"success\": false, \"error\": \"保存失败\"}", "application/json");
+        }
+    });
+
+    impl_->server.Get("/api/lan/hostnames", [this](const httplib::Request&, httplib::Response& res) {
+        auto hostnames = ipStore_.getAllMacHostnames();
+        std::ostringstream j;
+        j << "{";
+        for (size_t i = 0; i < hostnames.size(); i++) {
+            j << "\"" << hostnames[i].mac << "\": \"" << hostnames[i].hostname << "\"";
+            if (i < hostnames.size() - 1) j << ",";
+        }
+        j << "}";
+        res.set_content(j.str(), "application/json");
+    });
+
+    impl_->server.Post("/api/lan/hostname/delete", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string mac = req.get_param_value("mac");
+        if (mac.empty()) {
+            res.set_content("{\"success\": false, \"error\": \"MAC地址不能为空\"}", "application/json");
+            return;
+        }
+        if (ipStore_.removeMacHostname(mac)) {
+            res.set_content("{\"success\": true}", "application/json");
+        } else {
+            res.set_content("{\"success\": false, \"error\": \"删除失败\"}", "application/json");
+        }
+    });
+
     // 状态 API
     impl_->server.Get("/api/status", [this](const httplib::Request&, httplib::Response& res) {
         auto ips = ipStore_.getAllIps();
@@ -226,7 +281,8 @@ bool ApiServer::start(const std::string& host, int port) {
           << "\"cve2023_23397\": " << (cveStatus.cve2023_23397 ? "true" : "false") << ","
           << "\"cve2021_34527\": " << (cveStatus.cve2021_34527 ? "true" : "false") << ","
           << "\"cve2024_21745\": " << (cveStatus.cve2024_21745 ? "true" : "false") << ","
-          << "\"cve2021_44228\": " << (cveStatus.cve2021_44228 ? "true" : "false")
+          << "\"cve2021_44228\": " << (cveStatus.cve2021_44228 ? "true" : "false") << ","
+          << "\"highRiskPorts\": " << (cveStatus.highRiskPortsBlocked ? "true" : "false")
           << "},"
           << "\"lanDevices\": " << wfpManager_.getLastLanScan().size()
           << ", \"loggingEnabled\": " << (wfpManager_.isLoggingEnabled() ? "true" : "false")
@@ -246,7 +302,8 @@ bool ApiServer::start(const std::string& host, int port) {
           << "\"cve2023_23397\": " << (status.cve2023_23397 ? "true" : "false") << ","
           << "\"cve2021_34527\": " << (status.cve2021_34527 ? "true" : "false") << ","
           << "\"cve2024_21745\": " << (status.cve2024_21745 ? "true" : "false") << ","
-          << "\"cve2021_44228\": " << (status.cve2021_44228 ? "true" : "false") << "}";
+          << "\"cve2021_44228\": " << (status.cve2021_44228 ? "true" : "false") << ","
+          << "\"highRiskPorts\": " << (status.highRiskPortsBlocked ? "true" : "false") << "}";
         res.set_content(j.str(), "application/json");
     });
 
@@ -266,6 +323,7 @@ bool ApiServer::start(const std::string& host, int port) {
         else if (cveId == "cve2021_34527") ipStore_.setCve2021_34527Enabled(en);
         else if (cveId == "cve2024_21745") ipStore_.setCve2024_21745Enabled(en);
         else if (cveId == "cve2021_44228") ipStore_.setCve2021_44228Enabled(en);
+        else if (cveId == "highRiskPorts") ipStore_.setHighRiskPortsEnabled(en);
         res.set_content(okResp(en ? "防护已开启" : "防护已关闭"), "application/json");
     });
 
@@ -297,6 +355,61 @@ bool ApiServer::start(const std::string& host, int port) {
     impl_->server.Delete("/api/logs", [this](const httplib::Request&, httplib::Response& res) {
         wfpManager_.clearBlockLogs();
         res.set_content(okResp("Logs cleared"), "application/json");
+    });
+
+    // 端口管理 API
+    impl_->server.Get("/api/ports", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string protocol = req.has_param("protocol") ? req.get_param_value("protocol") : "all";
+        std::string state = req.has_param("state") ? req.get_param_value("state") : "all";
+        auto ports = wfpManager_.getPorts(protocol, state);
+        res.set_content(portsJson(ports), "application/json");
+    });
+
+    impl_->server.Get("/api/ports/listening", [this](const httplib::Request&, httplib::Response& res) {
+        auto ports = wfpManager_.getListeningPorts();
+        res.set_content(portsJson(ports), "application/json");
+    });
+
+    impl_->server.Get("/api/ports/established", [this](const httplib::Request&, httplib::Response& res) {
+        auto ports = wfpManager_.getEstablishedConnections();
+        res.set_content(portsJson(ports), "application/json");
+    });
+
+    impl_->server.Post("/api/ports/close", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string portStr = req.get_param_value("port");
+        std::string protocol = req.has_param("protocol") ? req.get_param_value("protocol") : "tcp";
+        
+        if (portStr.empty()) {
+            res.set_content(errResp("请指定端口号"), "application/json");
+            return;
+        }
+        
+        uint16_t port = static_cast<uint16_t>(std::stoi(portStr));
+        int closedCount = wfpManager_.closeConnectionsByPort(port, protocol);
+        
+        if (closedCount > 0) {
+            res.set_content(okResp("已关闭 " + std::to_string(closedCount) + " 个连接"), "application/json");
+        } else {
+            res.set_content(okResp("没有找到需要关闭的连接"), "application/json");
+        }
+    });
+
+    impl_->server.Post("/api/ports/close-by-pid", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string pidStr = req.get_param_value("pid");
+        
+        if (pidStr.empty()) {
+            res.set_content(errResp("请指定进程ID"), "application/json");
+            return;
+        }
+        
+        uint32_t pid = static_cast<uint32_t>(std::stoul(pidStr));
+        int closedCount = wfpManager_.closeConnectionsByPid(pid);
+        
+        if (closedCount > 0) {
+            res.set_content(okResp("已关闭 " + std::to_string(closedCount) + " 个连接"), "application/json");
+        } else {
+            res.set_content(okResp("没有找到需要关闭的连接"), "application/json");
+        }
     });
 
     impl_->server.set_error_handler([](const httplib::Request&, httplib::Response& res) { res.set_content(errResp("Not Found"), "application/json"); });

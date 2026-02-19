@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>端口管理 - WFP Firewall</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 主题切换按钮 -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">🌙</button>
+    
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">🔥 WFP Firewall</a>
+        <div class="navbar-nav">
+            <a href="ip.html" class="nav-link">✅ IP白名单</a>
+            <a href="mac.html" class="nav-link">🔗 MAC白名单</a>
+            <a href="ports.html" class="nav-link active">🔌 端口管理</a>
+            <a href="lan.html" class="nav-link">🌐 局域网</a>
+            <a href="logs.html" class="nav-link">📋 拦截日志</a>
+            <a href="cve.html" class="nav-link">🛡️ CVE防护</a>
+        </div>
+    </nav>
+    
+    <!-- 粒子背景 -->
+    <canvas id="particles-canvas"></canvas>
+    
+    <!-- 主内容 -->
+    <main class="main-content">
+        <div class="container">
+            <div class="panel port-panel">
+                <h2>🔌 端口与连接管理</h2>
+                <div class="cve-card medium">
+                    <div class="cve-title">端口状态监控</div>
+                    <div class="cve-desc">查看当前系统开放的端口和网络连接状态，支持按端口或进程清理异常连接。</div>
+                </div>
+                
+                <div class="header-actions" style="margin-top:20px">
+                    <h2>端口列表</h2>
+                    <div class="actions">
+                        <button class="btn btn-secondary btn-sm" onclick="loadPorts()">刷新</button>
+                    </div>
+                </div>
+                
+                <div class="form-row" style="margin-bottom:15px">
+                    <div class="form-group" style="flex:0.3">
+                        <label>协议筛选</label>
+                        <select id="portProtocolFilter" onchange="filterPorts()" style="width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text-primary);font-size:13px">
+                            <option value="all">全部</option>
+                            <option value="tcp">TCP</option>
+                            <option value="udp">UDP</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:0.3">
+                        <label>状态筛选</label>
+                        <select id="portStateFilter" onchange="filterPorts()" style="width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text-primary);font-size:13px">
+                            <option value="all">全部</option>
+                            <option value="listening">监听中</option>
+                            <option value="established">已建立</option>
+                            <option value="time_wait">TIME_WAIT</option>
+                            <option value="close_wait">CLOSE_WAIT</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:0.4">
+                        <label>搜索</label>
+                        <input type="text" id="portSearch" placeholder="端口/进程名..." oninput="filterPorts()">
+                    </div>
+                </div>
+                
+                <div class="quick-actions" style="margin-bottom:15px">
+                    <button class="btn btn-success btn-sm" onclick="loadListeningPorts()">仅显示监听端口</button>
+                    <button class="btn btn-success btn-sm" onclick="loadEstablishedPorts()">仅显示已建立连接</button>
+                </div>
+                
+                <div class="port-list" id="portList"></div>
+                
+                <h2 style="margin-top:25px">关闭连接</h2>
+                <form id="closePortForm" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+                    <div class="form-group" style="flex:0.3;min-width:120px">
+                        <label>端口号</label>
+                        <input type="number" id="closePortNum" placeholder="端口号" min="1" max="65535">
+                    </div>
+                    <div class="form-group" style="flex:0.2;min-width:100px">
+                        <label>协议</label>
+                        <select id="closePortProtocol" style="width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text-primary);font-size:13px">
+                            <option value="tcp">TCP</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-danger">关闭端口连接</button>
+                </form>
+                
+                <form id="closePidForm" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:15px">
+                    <div class="form-group" style="flex:0.3;min-width:120px">
+                        <label>进程ID (PID)</label>
+                        <input type="number" id="closePidNum" placeholder="进程ID" min="1">
+                    </div>
+                    <button type="submit" class="btn btn-danger">关闭进程连接</button>
+                </form>
+            </div>
+        </div>
+    </main>
+    
+    <div class="toast" id="toast"></div>
+
+    <script src="common.js"></script>
+    <script>
+        let portData = [];
+        
+        const loadPorts = async () => { 
+            try { 
+                const r = await fetch('/api/ports'); 
+                portData = await r.json(); 
+                renderPorts(); 
+            } catch(e){ showToast('加载端口失败', 'error'); } 
+        };
+        
+        const loadListeningPorts = async () => { 
+            try { 
+                const r = await fetch('/api/ports/listening'); 
+                portData = await r.json(); 
+                renderPorts(); 
+                document.getElementById('portProtocolFilter').value = 'all';
+                document.getElementById('portStateFilter').value = 'listening';
+            } catch(e){ showToast('加载失败', 'error'); } 
+        };
+        
+        const loadEstablishedPorts = async () => { 
+            try { 
+                const r = await fetch('/api/ports/established'); 
+                portData = await r.json(); 
+                renderPorts(); 
+                document.getElementById('portProtocolFilter').value = 'tcp';
+                document.getElementById('portStateFilter').value = 'established';
+            } catch(e){ showToast('加载失败', 'error'); } 
+        };
+        
+        const renderPorts = (filter = {}) => { 
+            const el = document.getElementById('portList'); 
+            let d = portData;
+            
+            if (filter.protocol && filter.protocol !== 'all') {
+                d = d.filter(p => p.protocol.toLowerCase().includes(filter.protocol.toLowerCase()));
+            }
+            if (filter.state && filter.state !== 'all') {
+                d = d.filter(p => p.state.toLowerCase() === filter.state.toLowerCase());
+            }
+            if (filter.search) {
+                const s = filter.search.toLowerCase();
+                d = d.filter(p => 
+                    p.port.toString().includes(s) || 
+                    p.processName.toLowerCase().includes(s) ||
+                    p.localAddress.toLowerCase().includes(s)
+                );
+            }
+            
+            if (!d.length) { 
+                el.innerHTML = '<div class="empty-state"><div class="icon">🔌</div><p>暂无端口数据</p></div>'; 
+                return; 
+            } 
+            
+            const stateColors = {
+                'LISTENING': 'var(--success)',
+                'ESTABLISHED': 'var(--info)',
+                'TIME_WAIT': 'var(--warning)',
+                'CLOSE_WAIT': 'var(--danger)',
+                'SYN_SENT': 'var(--orange)',
+                'SYN_RCVD': 'var(--purple)'
+            };
+            
+            el.innerHTML = d.map(p => {
+                const stateColor = stateColors[p.state] || 'var(--text-muted)';
+                const protocolBadge = p.protocol.includes('6') ? 
+                    '<span class="ip-type-badge ipv6" style="font-size:9px">' + p.protocol + '</span>' : 
+                    '<span class="ip-type-badge ipv4" style="font-size:9px">' + p.protocol + '</span>';
+                
+                return '<div class="port-item" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface);border-radius:10px;margin-bottom:8px;border:1px solid var(--border-light);transition:all 0.3s ease">' +
+                    '<div style="display:flex;align-items:center;gap:15px;flex:1;min-width:0">' +
+                        '<span style="font-family:Consolas,monospace;font-size:16px;font-weight:600;color:var(--accent-start);min-width:60px">' + p.port + '</span>' +
+                        protocolBadge +
+                        '<span style="padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;background:' + stateColor + '22;color:' + stateColor + '">' + p.state + '</span>' +
+                        '<span style="font-family:Consolas,monospace;font-size:11px;color:var(--text-muted);max-width:120px;overflow:hidden;text-overflow:ellipsis" title="' + p.localAddress + '">' + p.localAddress + '</span>' +
+                        (p.remoteAddress !== '-' ? '<span style="font-size:11px;color:var(--text-faint)">→ ' + p.remoteAddress + (p.remotePort ? ':' + p.remotePort : '') + '</span>' : '') +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:10px">' +
+                        '<span style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis" title="' + p.processName + '">' + p.processName + '</span>' +
+                        '<span style="font-family:Consolas,monospace;font-size:10px;color:var(--text-faint);min-width:50px">PID:' + p.pid + '</span>' +
+                        (p.state !== 'LISTENING' && p.protocol.includes('TCP') ? '<button class="btn btn-danger btn-sm" onclick="closePort(' + p.port + ',\'' + p.pid + '\')">关闭</button>' : '') +
+                    '</div>' +
+                '</div>';
+            }).join(''); 
+        };
+        
+        const filterPorts = () => {
+            renderPorts({
+                protocol: document.getElementById('portProtocolFilter').value,
+                state: document.getElementById('portStateFilter').value,
+                search: document.getElementById('portSearch').value
+            });
+        };
+        
+        const closePort = async (port, pid) => {
+            if (!confirm('关闭端口 ' + port + ' 的连接？')) return;
+            try {
+                const params = new URLSearchParams();
+                params.append('port', port);
+                params.append('protocol', 'tcp');
+                const r = await fetch('/api/ports/close', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+                const d = await r.json();
+                if (d.success) {
+                    showToast(d.message);
+                    loadPorts();
+                } else showToast(d.error, 'error');
+            } catch(e) {
+                showToast('操作失败', 'error');
+            }
+        };
+        
+        document.getElementById('closePortForm').onsubmit = async e => {
+            e.preventDefault();
+            const port = document.getElementById('closePortNum').value.trim();
+            const protocol = document.getElementById('closePortProtocol').value;
+            if (!port) {
+                showToast('请输入端口号', 'error');
+                return;
+            }
+            try {
+                const params = new URLSearchParams();
+                params.append('port', port);
+                params.append('protocol', protocol);
+                const r = await fetch('/api/ports/close', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+                const d = await r.json();
+                if (d.success) {
+                    showToast(d.message);
+                    document.getElementById('closePortNum').value = '';
+                    loadPorts();
+                } else showToast(d.error, 'error');
+            } catch(e) {
+                showToast('操作失败', 'error');
+            }
+        };
+        
+        document.getElementById('closePidForm').onsubmit = async e => {
+            e.preventDefault();
+            const pid = document.getElementById('closePidNum').value.trim();
+            if (!pid) {
+                showToast('请输入进程ID', 'error');
+                return;
+            }
+            if (!confirm('关闭进程 PID:' + pid + ' 的所有网络连接？')) return;
+            try {
+                const params = new URLSearchParams();
+                params.append('pid', pid);
+                const r = await fetch('/api/ports/close-by-pid', {method:'POST', body:params, headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+                const d = await r.json();
+                if (d.success) {
+                    showToast(d.message);
+                    document.getElementById('closePidNum').value = '';
+                    loadPorts();
+                } else showToast(d.error, 'error');
+            } catch(e) {
+                showToast('操作失败', 'error');
+            }
+        };
+        
+        // 初始化
+        loadPorts();
+    </script>
+</body>
+</html>

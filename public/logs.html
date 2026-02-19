@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拦截日志 - WFP Firewall</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 主题切换按钮 -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">🌙</button>
+    
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">🔥 WFP Firewall</a>
+        <div class="navbar-nav">
+            <a href="ip.html" class="nav-link">✅ IP白名单</a>
+            <a href="mac.html" class="nav-link">🔗 MAC白名单</a>
+            <a href="ports.html" class="nav-link">🔌 端口管理</a>
+            <a href="lan.html" class="nav-link">🌐 局域网</a>
+            <a href="logs.html" class="nav-link active">📋 拦截日志</a>
+            <a href="cve.html" class="nav-link">🛡️ CVE防护</a>
+        </div>
+    </nav>
+    
+    <!-- 粒子背景 -->
+    <canvas id="particles-canvas"></canvas>
+    
+    <!-- 主内容 -->
+    <main class="main-content">
+        <div class="container">
+            <div class="panel log-panel">
+                <div class="header-actions">
+                    <h2>📋 拦截日志</h2>
+                    <div class="actions">
+                        <button class="btn btn-secondary btn-sm" onclick="loadLogs()">刷新</button>
+                        <button class="btn btn-danger btn-sm" onclick="clearLogs()">清空</button>
+                    </div>
+                </div>
+                <div class="cve-card medium">
+                    <div class="cve-title">拦截记录</div>
+                    <div class="cve-desc">显示被防火墙拦截的网络连接记录，包括时间、源/目标 IP、协议等信息。</div>
+                </div>
+                <div class="log-list" id="logList"></div>
+            </div>
+        </div>
+    </main>
+    
+    <div class="toast" id="toast"></div>
+
+    <script src="common.js"></script>
+    <script>
+        let logData = [];
+        
+        const loadLogs = async () => { 
+            try { 
+                const r = await fetch('/api/logs'); 
+                logData = await r.json(); 
+                renderLogs(); 
+            } catch(e){ showToast('加载日志失败', 'error'); } 
+        };
+        
+        const renderLogs = () => { 
+            const el = document.getElementById('logList'); 
+            if (!logData.length) { 
+                el.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>暂无拦截记录</p></div>'; 
+                return; 
+            } 
+            el.innerHTML = logData.map(l => '<div class="log-item"><div class="log-info"><div class="log-time">' + l.timestamp + ' | ' + l.direction + '</div><div class="log-detail"><span class="log-src">' + l.srcIp + (l.srcPort ? ':' + l.srcPort : '') + '</span> → <span class="log-dst">' + l.dstIp + (l.dstPort ? ':' + l.dstPort : '') + '</span> | <span class="log-proto">' + l.protocol + '</span></div></div></div>').join(''); 
+        };
+        
+        const clearLogs = async () => { 
+            if (!confirm('清空所有日志?')) return; 
+            await fetch('/api/logs', {method:'DELETE'}); 
+            showToast('日志已清空'); 
+            loadLogs(); 
+        };
+        
+        // 初始化
+        loadLogs();
+        // 定时刷新
+        setInterval(loadLogs, 5000);
+    </script>
+</body>
+</html>
